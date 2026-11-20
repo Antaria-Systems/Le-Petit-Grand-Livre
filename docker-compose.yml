@@ -35,7 +35,7 @@ services:
       db:
         condition: service_healthy
     networks: [backend, frontend]
-    mem_limit: 512m
+    mem_limit: 768m
 
   # Worker : analyse (rendu + OCR + détection) et génération des PDF occultés
   worker:

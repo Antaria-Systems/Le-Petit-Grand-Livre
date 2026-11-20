@@ -33,7 +33,8 @@ export default async function Connexion({ searchParams }: Props) {
             <>
               {error === "AccessDenied" && (
                 <p className="badge badge-alerte" style={{ whiteSpace: "normal" }}>
-                  Ce compte n&apos;appartient pas au groupe autorisé à administrer la plateforme.
+                  Ce compte n&apos;appartient pas au groupe autorisé. Dans Authentik, ajoutez-le au groupe «&nbsp;
+                  {process.env.AUTH_ADMIN_GROUP}&nbsp;», puis reconnectez-vous.
                 </p>
               )}
               {error && error !== "AccessDenied" && (

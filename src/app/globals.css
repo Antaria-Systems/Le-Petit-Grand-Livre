@@ -729,3 +729,23 @@ caption { text-align: left; color: var(--muted); font-size: 0.85rem; padding-bot
 .zone-panneau { display: grid; gap: 8px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface-2); margin-top: 8px; }
 kbd { font: inherit; font-size: 0.8em; padding: 1px 5px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface-2); }
 .lien-bouton { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.grille-champs { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.zone-depot {
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 32px 16px;
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.zone-depot p { margin: 0; }
+.zone-depot-survol { border-color: var(--accent); background: var(--accent-soft); }
+.liste-envois { list-style: none; margin: 16px 0 0; padding: 0; }
+.liste-envois > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.envoi-ligne { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.envoi-nom { font-weight: 550; overflow-wrap: anywhere; flex: 1 1 200px; }
+.liste-envois progress { width: 140px; accent-color: var(--accent); }
+.detail-import { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }

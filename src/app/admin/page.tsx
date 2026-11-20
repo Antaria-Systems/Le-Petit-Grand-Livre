@@ -37,7 +37,12 @@ export default async function AdminDocuments({ searchParams }: Props) {
   return (
     <section className="section">
       <div className="conteneur">
-        <h1>Documents</h1>
+        <div className="bloc-titre">
+          <h1 style={{ margin: 0 }}>Documents</h1>
+          <Link href="/admin/depot" className="bouton bouton-principal">
+            Déposer des documents
+          </Link>
+        </div>
         <nav className="selecteur-annee" aria-label="Filtrer par statut" style={{ marginBottom: 20 }}>
           <Link href="/admin" aria-current={!filtre ? "page" : undefined}>
             Tous ({total})
