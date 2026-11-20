@@ -15,6 +15,7 @@ type Props = {
     mairieTelephone: string | null;
     mairieEmail: string | null;
     mairieSite: string | null;
+    presentation: string | null;
   };
   departement: { code: string; nom: string };
   region: { code: string; nom: string };
@@ -56,6 +57,16 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
             Commune · {departement.nom} ({departement.code})
           </p>
           <h1>{commune.nom}</h1>
+          {commune.presentation && (
+            <div className="fiche-presentation">
+              {commune.presentation
+                .split(/\n\s*\n/)
+                .filter((p) => p.trim())
+                .map((p, i) => (
+                  <p key={i}>{p.trim()}</p>
+                ))}
+            </div>
+          )}
           <dl className="faits">
             {commune.population !== null && (
               <div>

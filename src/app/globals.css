@@ -986,3 +986,54 @@ kbd { font: inherit; font-size: 0.8em; padding: 1px 5px; border: 1px solid var(-
 .poignee-ne { right: -7px; top: -7px; cursor: nesw-resize; }
 .poignee-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
 .poignee-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+
+/* ───────────── Administration : territoires, communes, demandes ───────────── */
+.admin-barre .admin-marque { font-weight: 700; text-decoration: none; }
+.titre-carte { font-size: 1.05rem; margin: 0 0 12px; }
+.titre-section-admin { font-size: 1.2rem; margin: 28px 0 12px; }
+.onglets { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 20px 0 24px; overflow-x: auto; }
+.onglets a { padding: 10px 14px; color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.onglets a:hover { color: var(--ink); }
+.onglets a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.admin-grille { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 960px) { .admin-grille { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+.formulaire-champs { border: 0; padding: 0; margin: 0; min-width: 0; }
+.formulaire-champs:disabled { opacity: 0.6; }
+.message-formulaire { margin-top: 10px; white-space: normal; }
+.formulaire-suppression { margin-top: 8px; }
+.admin-depliable { margin-bottom: 10px; }
+.admin-depliable > summary { cursor: pointer; list-style-position: outside; }
+.admin-depliable[open] > summary { margin-bottom: 14px; }
+.admin-depliable-interne { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 12px; }
+.admin-depliable-interne > summary { cursor: pointer; color: var(--accent); font-weight: 550; }
+.admin-depliable-interne[open] > summary { margin-bottom: 12px; }
+.cases-documents { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; margin: 0 0 12px; max-height: 320px; overflow-y: auto; display: grid; gap: 2px; }
+.cases-documents legend { font-size: 0.9rem; font-weight: 550; color: var(--ink-2); padding: 0 4px; }
+.cases-documents .case { align-items: flex-start; margin: 0; padding: 3px 0; }
+.cases-documents .case input { margin-top: 4px; }
+.dl-admin { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; font-size: 0.92rem; }
+.dl-admin dt { color: var(--muted); }
+.dl-admin dd { margin: 0; }
+.dl-ligne { grid-template-columns: repeat(auto-fit, minmax(140px, max-content) minmax(100px, 1fr)); }
+.texte-courrier { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; }
+pre.texte-courrier { background: var(--surface-2); padding: 10px 12px; border-radius: var(--radius-sm); margin: 6px 0 0; }
+.encadre-envoi { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius-sm); padding: 12px 14px; margin: 12px 0; }
+.encadre-envoi p { margin: 0 0 8px; }
+.demande-admin { margin-bottom: 16px; }
+.journal { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
+.journal li { border-left: 2px solid var(--line-strong); padding-left: 12px; }
+.journal p { margin: 0 0 4px; }
+.alerte { display: inline-block; padding: 3px 10px; border-radius: var(--radius-sm); font-size: 0.88rem; margin: 0 0 8px; }
+.alerte-info { background: var(--st-neutre-bg); color: var(--st-neutre-ink); }
+.alerte-attention { background: var(--st-attente-bg); color: var(--st-attente-ink); }
+.alerte-urgent { background: var(--st-alerte-bg); color: var(--st-alerte-ink); font-weight: 600; }
+.liste-alertes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.liste-alertes li { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.liste-alertes li.alerte-urgent { background: var(--st-alerte-bg); color: var(--st-alerte-ink); font-weight: 400; }
+.journal-tache pre { font-size: 0.78rem; background: var(--surface-2); padding: 8px; border-radius: var(--radius-sm); max-height: 200px; overflow: auto; white-space: pre-wrap; }
+.petit-bouton { padding: 5px 10px; font-size: 0.85rem; }
+
+.fiche-presentation { max-width: 62ch; margin: -6px 0 22px; color: var(--ink-2); font-size: 1.05rem; }
+.fiche-presentation p { margin: 0 0 0.6em; }
+.demande-publique + .demande-publique { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.demande-publique .chronologie li { grid-template-columns: 96px 1fr; padding: 6px 0; }

@@ -16,8 +16,9 @@ const BAREME: { min: number; max: number; libelle: string; maire: number; adjoin
 ];
 
 type Indemnite = { annee: number; fonction: string; ordre: number; montantBrutAnnuel: { toString(): string } };
+type Frais = { annee: number; fonction: string; nature: string; montant: { toString(): string } };
 
-export function SectionElus({ population, indemnites }: { population: number | null; indemnites: Indemnite[] }) {
+export function SectionElus({ population, indemnites, frais = [] }: { population: number | null; indemnites: Indemnite[]; frais?: Frais[] }) {
   const tranche = population !== null ? BAREME.find((b) => population >= b.min && population <= b.max) : undefined;
   const annee = indemnites.length ? Math.max(...indemnites.map((i) => i.annee)) : null;
   const lignes = indemnites.filter((i) => i.annee === annee).sort((a, b) => a.ordre - b.ordre);
@@ -30,6 +31,7 @@ export function SectionElus({ population, indemnites }: { population: number | n
         titre="Élus et indemnités"
         description="Les indemnités sont publiées par fonction (maire, adjoints…), jamais nominativement."
       />
+      {frais.length > 0 && <TableauFrais frais={frais} />}
       <div className="travaux-grille">
         {lignes.length > 0 ? (
           <div className="carte">
@@ -86,5 +88,50 @@ export function SectionElus({ population, indemnites }: { population: number | n
         )}
       </div>
     </section>
+  );
+}
+
+/** Frais remboursés aux élus : total par fonction et par nature, pour la dernière année connue. */
+function TableauFrais({ frais }: { frais: Frais[] }) {
+  const annee = Math.max(...frais.map((f) => f.annee));
+  const de = frais.filter((f) => f.annee === annee);
+  const natures = [...new Set(de.map((f) => f.nature))].sort();
+  const fonctions = [...new Set(de.map((f) => f.fonction))];
+  const somme = (fn: (f: Frais) => boolean) => de.filter(fn).reduce((s, f) => s + Number(f.montant.toString()), 0);
+  return (
+    <div className="carte" style={{ marginBottom: 12 }}>
+      <h3>Frais remboursés aux élus en {annee}</h3>
+      <div className="tableau-defilant">
+        <table>
+          <thead>
+            <tr>
+              <th>Fonction</th>
+              {natures.map((n) => (
+                <th key={n} className="nombre">
+                  {n}
+                </th>
+              ))}
+              <th className="nombre">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fonctions.map((fn) => (
+              <tr key={fn}>
+                <td>{fn}</td>
+                {natures.map((n) => {
+                  const v = somme((f) => f.fonction === fn && f.nature === n);
+                  return (
+                    <td key={n} className="nombre">
+                      {v ? formatEuros(v) : "—"}
+                    </td>
+                  );
+                })}
+                <th className="nombre">{formatEuros(somme((f) => f.fonction === fn))}</th>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

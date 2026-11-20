@@ -69,7 +69,21 @@ Règles appliquées :
   aucun texte ne subsiste sous les masques.
 - Les élus sont publiés **par fonction**, jamais par nom.
 
-## Administration et courriels
+## Administration
+
+| Page | Rôle |
+|---|---|
+| `/admin` | Tableau de bord : documents à vérifier, échéances des demandes, territoires, imports |
+| `/admin/regions` → région → département | Couverture des territoires ; « Couvrir et importer » lance l'import d'un département (worker) |
+| `/admin/communes/<INSEE>` | Fiche d'administration : informations et présentation publique, chantiers, documents, indemnités et frais des élus, demandes CRPA / CADA |
+| `/admin/demandes` | Suivi de toutes les demandes : refus implicite à un mois, saisine de la CADA dans les deux mois |
+| `/admin/documents`, `/admin/depot` | File de vérification et dépôt de documents |
+
+Demandes : une seule demande groupée par commune et par an ; le courrier type est généré en brouillon,
+relu, puis envoyé par le relais SMTP **uniquement sur confirmation explicite**. Les échanges (réponse de la
+mairie, relances, CADA) sont consignés dans le journal de la demande.
+
+## Connexion et courriels
 
 - **Connexion** : Authentik (OIDC, PKCE), réservée au groupe `AUTH_ADMIN_GROUP` (claim `groups`).
   Adresse de retour à déclarer : `https://<domaine>/api/auth/callback/authentik`.

@@ -439,7 +439,7 @@ export function EditeurOccultation({
     setOccupe(true);
     try {
       await appel(`/api/admin/documents/${doc.id}/action`, "POST", { action: "terminer" });
-      router.push(navigation.suivantId ? `/admin/documents/${navigation.suivantId}` : "/admin");
+      router.push(navigation.suivantId ? `/admin/documents/${navigation.suivantId}` : "/admin/documents?statut=A_VERIFIER");
     } catch (e) {
       signaler("erreur", (e as Error).message);
       setOccupe(false);

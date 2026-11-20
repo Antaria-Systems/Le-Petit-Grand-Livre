@@ -61,7 +61,8 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
     <section className="section" style={{ paddingTop: 20 }}>
       <div className="conteneur">
         <p className="petit">
-          <Link href="/admin">← Tous les documents</Link> · <Link href={`/communes/${doc.commune.slug}#documents`}>{doc.commune.nom}</Link>
+          <Link href="/admin/documents">← Tous les documents</Link> · <Link href={`/admin/communes/${doc.communeCode}`}>Administration de {doc.commune.nom}</Link> ·{" "}
+          <Link href={`/communes/${doc.commune.slug}#documents`}>Fiche publique</Link>
         </p>
         <EditeurOccultation
           key={doc.id}

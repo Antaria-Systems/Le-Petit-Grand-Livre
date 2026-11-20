@@ -37,8 +37,8 @@ function envoyer(url: string, fichier: File, progression: (p: number) => void): 
   });
 }
 
-export function DepotDocuments({ communes }: { communes: { code: string; libelle: string }[] }) {
-  const [commune, setCommune] = useState("11199");
+export function DepotDocuments({ communes, communeInitiale }: { communes: { code: string; libelle: string }[]; communeInitiale?: string }) {
+  const [commune, setCommune] = useState(communeInitiale ?? communes[0]?.code ?? "");
   const [categorie, setCategorie] = useState<CategorieDocument | "">("");
   const [lot, setLot] = useState(() => `Dépôt du ${new Date().toLocaleDateString("fr-FR")}`);
   const [envois, setEnvois] = useState<Envoi[]>([]);
@@ -48,13 +48,14 @@ export function DepotDocuments({ communes }: { communes: { code: string; libelle
   const champ = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (communeInitiale) return; // arrivée depuis la fiche d'une commune : elle prime
     try {
       const memo = localStorage.getItem("depot-commune");
       if (memo && communes.some((c) => c.code === memo)) setCommune(memo);
     } catch {
       /* stockage indisponible */
     }
-  }, [communes]);
+  }, [communes, communeInitiale]);
 
   function choisirCommune(code: string) {
     setCommune(code);
@@ -212,7 +213,7 @@ export function DepotDocuments({ communes }: { communes: { code: string; libelle
         {tous.length > 0 && !enCours && (
           <span className="petit">
             {nb("importe")} importé(s) · {nb("doublon")} doublon(s) · {nb("ignore")} ignoré(s)
-            {nb("erreur") ? ` · ${nb("erreur")} erreur(s)` : ""} — <Link href="/admin?statut=RECU">suivre l&apos;analyse</Link>
+            {nb("erreur") ? ` · ${nb("erreur")} erreur(s)` : ""} — <Link href="/admin/documents?statut=RECU">suivre l&apos;analyse</Link>
           </span>
         )}
       </div>

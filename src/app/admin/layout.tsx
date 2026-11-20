@@ -17,8 +17,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin">
       <div className="admin-barre">
         <div className="conteneur">
-          <strong>Administration</strong>
-          <Link href="/admin">Documents</Link>
+          <Link href="/admin" className="admin-marque">
+            Administration
+          </Link>
+          <Link href="/admin/regions">Territoires</Link>
+          <Link href="/admin/demandes">Demandes</Link>
+          <Link href="/admin/documents">Documents</Link>
           <Link href="/admin/depot">Déposer</Link>
           <span className="discret petit">
             {admin.mode === "oidc" ? admin.nom : "Accès provisoire par mot de passe"}

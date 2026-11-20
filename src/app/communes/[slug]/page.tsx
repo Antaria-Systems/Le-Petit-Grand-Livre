@@ -13,7 +13,8 @@ import { SectionTravaux } from "@/components/fiche/SectionTravaux";
 import { site } from "@/lib/config";
 import { db } from "@/lib/db";
 import { financesCommune, referencesStrate } from "@/lib/finances";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateCourte } from "@/lib/format";
+import { STATUT_DEMANDE } from "@/lib/statuts";
 import { travauxCommune } from "@/lib/travaux";
 
 type Props = {
@@ -51,11 +52,17 @@ export default async function PageCommune({ params, searchParams }: Props) {
   const commune = await chargerCommune(slug);
   if (!commune) notFound();
 
-  const [finances, refs, travaux, indemnites, lots] = await Promise.all([
+  const [finances, refs, travaux, indemnites, frais, demandes, lots] = await Promise.all([
     financesCommune(commune.code),
     referencesStrate(commune.strate),
     travauxCommune(commune.code),
     db.indemniteFonction.findMany({ where: { communeCode: commune.code }, orderBy: [{ annee: "desc" }, { ordre: "asc" }] }),
+    db.fraisFonction.findMany({ where: { communeCode: commune.code } }),
+    db.demande.findMany({
+      where: { communeCode: commune.code, statut: { not: "BROUILLON" } },
+      orderBy: { annee: "desc" },
+      include: { _count: { select: { documents: { where: { statut: "PUBLIE" } } } } },
+    }),
     db.document.groupBy({
       by: ["lot"],
       where: { communeCode: commune.code, statut: "PUBLIE" },
@@ -104,7 +111,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
         )}
 
         <SectionTravaux chantiers={travaux.chantiers} totaux={travaux.totaux} />
-        <SectionElus population={commune.population} indemnites={indemnites} />
+        <SectionElus population={commune.population} indemnites={indemnites} frais={frais} />
 
         <section id="documents" className="bloc" aria-labelledby="titre-documents">
           <EnTeteSection
@@ -136,6 +143,41 @@ export default async function PageCommune({ params, searchParams }: Props) {
                 <Link href="/methodologie#definitions">Définitions</Link>
               </p>
             </div>
+            {demandes.length > 0 && (
+              <div className="carte">
+                <h3>Demandes adressées à la mairie</h3>
+                {demandes.map((d) => {
+                  const etapes = [
+                    d.envoyeeLe && { date: d.envoyeeLe, texte: "Demande envoyée" },
+                    d.relanceeLe && { date: d.relanceeLe, texte: "Relance" },
+                    d.reponseLe && { date: d.reponseLe, texte: "Réponse de la mairie" },
+                    d.cadaSaisieLe && { date: d.cadaSaisieLe, texte: "Saisine de la CADA" },
+                    d.avisCadaLe && { date: d.avisCadaLe, texte: `Avis de la CADA${d.avisCada ? ` : ${d.avisCada}` : ""}` },
+                    d.clotureLe && { date: d.clotureLe, texte: "Demande close" },
+                  ]
+                    .filter((e): e is { date: Date; texte: string } => Boolean(e))
+                    .sort((a, b) => a.date.getTime() - b.date.getTime());
+                  return (
+                    <div key={d.id} className="demande-publique">
+                      <p>
+                        <strong>Demande {d.annee}</strong> <span className={`badge ${STATUT_DEMANDE[d.statut].classe}`}>{STATUT_DEMANDE[d.statut].libelle}</span>
+                      </p>
+                      <ol className="chronologie">
+                        {etapes.map((e) => (
+                          <li key={e.texte}>
+                            <time dateTime={e.date.toISOString()}>{formatDateCourte(e.date)}</time>
+                            <span>{e.texte}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="petit discret">
+                        {d._count.documents} document{d._count.documents > 1 ? "s" : ""} publié{d._count.documents > 1 ? "s" : ""} à la suite de cette demande
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="carte">
               <h3>Documents de la mairie</h3>
               {lots.length > 0 ? (

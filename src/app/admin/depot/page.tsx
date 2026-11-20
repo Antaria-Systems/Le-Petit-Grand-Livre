@@ -1,7 +1,8 @@
 import { DepotDocuments } from "@/components/admin/DepotDocuments";
 import { db } from "@/lib/db";
 
-export default async function PageDepot() {
+export default async function PageDepot({ searchParams }: { searchParams: Promise<{ commune?: string }> }) {
+  const { commune: communeDemandee } = await searchParams;
   const communes = await db.commune.findMany({
     where: { departement: { actif: true } },
     orderBy: { nomRecherche: "asc" },
@@ -16,7 +17,10 @@ export default async function PageDepot() {
           l&apos;arrivée, dédoublonné, classé d&apos;après les noms de dossiers et de fichiers, puis analysé. Rien n&apos;est
           publié sans votre validation.
         </p>
-        <DepotDocuments communes={communes.map((c) => ({ code: c.code, libelle: `${c.nom} (${c.departementCode})` }))} />
+        <DepotDocuments
+          communes={communes.map((c) => ({ code: c.code, libelle: `${c.nom} (${c.departementCode})` }))}
+          communeInitiale={communes.some((c) => c.code === communeDemandee) ? communeDemandee : undefined}
+        />
       </div>
     </section>
   );

@@ -50,6 +50,10 @@ model Commune {
   // Contour simplifié (chemin SVG) dans le cadre de la carte du département
   cheminCarte     String?
 
+  // Saisis dans l'administration
+  presentation    String? // texte public affiché sur la fiche (contexte, précisions)
+  notesInternes   String? // jamais publié
+
   // Contact de la mairie (Annuaire de l'administration, service-public.fr)
   mairieEmail     String?
   mairieTelephone String?
@@ -320,7 +324,11 @@ model Demande {
   limiteSaisineCada DateTime?
   cadaSaisieLe  DateTime?
   numeroCada    String?
+  avisCadaLe    DateTime?
+  avisCada      String? // « favorable », « défavorable », « sans objet »…
+  reponseLe     DateTime? // première réponse de l'administration
   clotureLe     DateTime?
+  notes         String? // notes internes
 
   messages  Message[]
   documents Document[]
@@ -363,4 +371,29 @@ model Message {
 enum SensMessage {
   SORTANT
   ENTRANT
+}
+
+// Tâches de fond lancées depuis l'administration (import d'un département…), exécutées par le worker.
+model Tache {
+  id        Int         @id @default(autoincrement())
+  type      TypeTache
+  parametre String
+  statut    StatutTache @default(EN_ATTENTE)
+  journal   String      @default("")
+  creeLe    DateTime    @default(now())
+  debutLe   DateTime?
+  finLe     DateTime?
+
+  @@index([statut])
+}
+
+enum TypeTache {
+  IMPORTER_DEPARTEMENT
+}
+
+enum StatutTache {
+  EN_ATTENTE
+  EN_COURS
+  TERMINEE
+  ERREUR
 }
