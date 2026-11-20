@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CategorieDocument, MotifOccultation, StatutDocument, TravailDocument } from "@/generated/prisma/enums";
@@ -45,11 +46,46 @@ async function appel(url: string, methode: string, corps?: unknown) {
   return json;
 }
 
-export function EditeurOccultation({ document: initial, pages, zonesInitiales }: { document: Doc; pages: Page[]; zonesInitiales: Zone[] }) {
+type Navigation = { precedentId: string | null; suivantId: string | null; position: number | null; total: number };
+type Source = { id: string; titre: string; nbZones: number };
+type Manipulation = { id: string; mode: "deplacer" | "nw" | "ne" | "sw" | "se"; x0: number; y0: number; origine: Zone; cadre: DOMRect; bouge: boolean };
+
+/** Ordre de lecture des zones : page, puis de haut en bas, puis de gauche à droite. */
+const ordre = (a: Zone, b: Zone) => a.page - b.page || a.y - b.y || a.x - b.x;
+
+/** Prochaine zone à vérifier après (ou avant) une zone donnée, en bouclant. */
+function prochaineAVerifier(apres: Zone | null, liste: Zone[], sens: 1 | -1 = 1): Zone | null {
+  const aVoir = liste.filter((z) => !z.validee).sort(ordre);
+  if (aVoir.length === 0) return null;
+  if (!apres) return sens > 0 ? aVoir[0] : aVoir[aVoir.length - 1];
+  if (sens > 0) return aVoir.find((z) => z.id !== apres.id && ordre(z, apres) > 0) ?? aVoir.find((z) => z.id !== apres.id) ?? null;
+  return [...aVoir].reverse().find((z) => z.id !== apres.id && ordre(z, apres) < 0) ?? [...aVoir].reverse().find((z) => z.id !== apres.id) ?? null;
+}
+
+export function EditeurOccultation({
+  document: initial,
+  pages,
+  zonesInitiales,
+  navigation,
+  sources,
+}: {
+  document: Doc;
+  pages: Page[];
+  zonesInitiales: Zone[];
+  navigation: Navigation;
+  sources: Source[];
+}) {
   const router = useRouter();
   const [doc, setDoc] = useState(initial);
   const [zones, setZones] = useState(zonesInitiales);
   const [selection, setSelection] = useState<string | null>(null);
+  const [source, setSource] = useState(sources[0]?.id ?? "");
+  const zonesRef = useRef(zones);
+  const zonesDom = useRef(new Map<string, HTMLButtonElement>());
+  const manipulation = useRef<Manipulation | null>(null);
+  useEffect(() => {
+    zonesRef.current = zones;
+  }, [zones]);
   const [motif, setMotif] = useState<MotifOccultation>("SIGNATURE");
   const [transparence, setTransparence] = useState(false);
   const [trace, setTrace] = useState<Trace | null>(null);
@@ -210,20 +246,112 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
     }
   }, []);
 
+  /** Sélectionne une zone, la centre dans la visionneuse et lui donne le focus clavier. */
+  const selectionner = useCallback((id: string | null) => {
+    setSelection(id);
+    if (!id) return;
+    requestAnimationFrame(() => {
+      const el = zonesDom.current.get(id);
+      el?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+      el?.focus({ preventScroll: true });
+    });
+  }, []);
+
+  /** Valide (ou supprime) une zone puis enchaîne sur la prochaine zone à vérifier. */
+  const validerEtSuivre = useCallback(
+    (id: string) => {
+      const courante = zonesRef.current.find((z) => z.id === id) ?? null;
+      modifierZone(id, { validee: true });
+      selectionner(prochaineAVerifier(courante, zonesRef.current.map((z) => (z.id === id ? { ...z, validee: true } : z)))?.id ?? null);
+    },
+    [modifierZone, selectionner],
+  );
+
+  const supprimerEtSuivre = useCallback(
+    (id: string) => {
+      const courante = zonesRef.current.find((z) => z.id === id) ?? null;
+      supprimerZone(id);
+      selectionner(prochaineAVerifier(courante, zonesRef.current.filter((z) => z.id !== id))?.id ?? null);
+    },
+    [supprimerZone, selectionner],
+  );
+
+  const terminerRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     function clavier(e: KeyboardEvent) {
-      if (!selection || (e.target as HTMLElement).closest("input, select, textarea")) return;
+      if ((e.target as HTMLElement).closest("input, select, textarea")) return;
+      // Ctrl + Entrée : terminer le document et passer au suivant
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        terminerRef.current();
+        return;
+      }
+      // Tab / Maj + Tab : parcourir les zones à vérifier (seulement depuis la page ou une zone)
+      if (e.key === "Tab" && !e.ctrlKey && !e.altKey) {
+        const actif = document.activeElement;
+        if (actif && actif !== document.body && !actif.classList.contains("zone")) return;
+        const courante = zonesRef.current.find((z) => z.id === selection) ?? null;
+        const suivante = prochaineAVerifier(courante, zonesRef.current, e.shiftKey ? -1 : 1);
+        if (!suivante) return;
+        e.preventDefault();
+        selectionner(suivante.id);
+        return;
+      }
+      if (!selection) return;
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        supprimerZone(selection);
+        supprimerEtSuivre(selection);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        modifierZone(selection, { validee: true });
+        validerEtSuivre(selection);
       } else if (e.key === "Escape") setSelection(null);
     }
     window.addEventListener("keydown", clavier);
     return () => window.removeEventListener("keydown", clavier);
-  }, [selection, supprimerZone, modifierZone]);
+  }, [selection, selectionner, supprimerEtSuivre, validerEtSuivre]);
+
+  /* ─────────── Déplacer / redimensionner une zone ─────────── */
+  function debutManipulation(e: React.PointerEvent, z: Zone, mode: Manipulation["mode"]) {
+    if (e.button !== 0) return;
+    e.stopPropagation(); // pas de tracé de nouvelle zone
+    const zoneEl = (e.currentTarget as HTMLElement).closest(".zone") as HTMLElement;
+    const cadre = (zoneEl.closest(".page-calque") as HTMLElement).getBoundingClientRect();
+    zoneEl.setPointerCapture(e.pointerId);
+    setSelection(z.id);
+    manipulation.current = { id: z.id, mode, x0: e.clientX, y0: e.clientY, origine: { ...z }, cadre, bouge: false };
+  }
+
+  function mouvementManipulation(e: React.PointerEvent) {
+    const m = manipulation.current;
+    if (!m) return;
+    if (!m.bouge && Math.abs(e.clientX - m.x0) + Math.abs(e.clientY - m.y0) < 4) return;
+    m.bouge = true;
+    const dx = (e.clientX - m.x0) / m.cadre.width;
+    const dy = (e.clientY - m.y0) / m.cadre.height;
+    const o = m.origine;
+    const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+    let r: Pick<Zone, "x" | "y" | "largeur" | "hauteur">;
+    if (m.mode === "deplacer") {
+      r = { x: borne(o.x + dx, 0, 1 - o.largeur), y: borne(o.y + dy, 0, 1 - o.hauteur), largeur: o.largeur, hauteur: o.hauteur };
+    } else {
+      let [x0, y0, x1, y1] = [o.x, o.y, o.x + o.largeur, o.y + o.hauteur];
+      if (m.mode.includes("w")) x0 = borne(x0 + dx, 0, x1 - 0.005);
+      if (m.mode.includes("e")) x1 = borne(x1 + dx, x0 + 0.005, 1);
+      if (m.mode.includes("n")) y0 = borne(y0 + dy, 0, y1 - 0.004);
+      if (m.mode.includes("s")) y1 = borne(y1 + dy, y0 + 0.004, 1);
+      r = { x: x0, y: y0, largeur: x1 - x0, hauteur: y1 - y0 };
+    }
+    setZones((zs) => zs.map((z) => (z.id === m.id ? { ...z, ...r } : z)));
+  }
+
+  function finManipulation() {
+    const m = manipulation.current;
+    manipulation.current = null;
+    if (!m?.bouge) return;
+    const z = zonesRef.current.find((x) => x.id === m.id);
+    if (z) modifierZone(z.id, { x: z.x, y: z.y, largeur: z.largeur, hauteur: z.hauteur });
+  }
 
   /* ─────────── Tracé d'une nouvelle zone ─────────── */
   function position(e: React.PointerEvent<HTMLDivElement>) {
@@ -282,6 +410,35 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
     }
   }
 
+  /** Tout valider, générer, publier automatiquement, puis ouvrir le document suivant à vérifier. */
+  async function terminer() {
+    if (occupe || doc.travail || pages.length === 0 || doc.statut === "NON_PUBLIABLE" || doc.statut === "PUBLIE") return;
+    const restantes = zonesRef.current.filter((z) => !z.validee).length;
+    if (restantes > 0 && !window.confirm(`${restantes} zone(s) proposée(s) n'ont pas été vérifiées une par une. Les valider toutes et publier ?`)) return;
+    setOccupe(true);
+    try {
+      await appel(`/api/admin/documents/${doc.id}/action`, "POST", { action: "terminer" });
+      router.push(navigation.suivantId ? `/admin/documents/${navigation.suivantId}` : "/admin");
+    } catch (e) {
+      signaler("erreur", (e as Error).message);
+      setOccupe(false);
+    }
+  }
+  terminerRef.current = terminer;
+
+  async function copierZones() {
+    if (!source) return;
+    try {
+      const { zones: nouvelles } = (await appel(`/api/admin/documents/${doc.id}/copier-zones`, "POST", { depuis: source })) as { zones: Zone[] };
+      setZones((zs) => [...zs, ...nouvelles]);
+      marquerModifie();
+      signaler("ok", `${nouvelles.length} zone(s) reprise(s), à vérifier (Tab pour les parcourir).`);
+      selectionner([...nouvelles].sort(ordre)[0]?.id ?? null);
+    } catch (e) {
+      signaler("erreur", (e as Error).message);
+    }
+  }
+
   async function enregistrerMeta(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -303,6 +460,17 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
   return (
     <div className="editeur">
       <div className="editeur-pages">
+        <nav className="nav-verification" aria-label="Documents à vérifier">
+          {navigation.precedentId ? <Link href={`/admin/documents/${navigation.precedentId}`}>← Précédent</Link> : <span />}
+          <span className="discret petit">
+            {navigation.total === 0
+              ? "Aucun autre document à vérifier"
+              : navigation.position
+                ? `Document ${navigation.position} sur ${navigation.total} à vérifier`
+                : `${navigation.total} document${navigation.total > 1 ? "s" : ""} à vérifier`}
+          </span>
+          {navigation.suivantId ? <Link href={`/admin/documents/${navigation.suivantId}`}>Suivant →</Link> : <span />}
+        </nav>
         <h1 style={{ fontSize: "1.5rem" }}>{doc.titre}</h1>
         <p className="discret petit">Fichier d&apos;origine : {doc.nomOriginal}</p>
         {pages.length === 0 && (
@@ -356,13 +524,25 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
                     <button
                       type="button"
                       key={z.id}
+                      ref={(el) => {
+                        if (el) zonesDom.current.set(z.id, el);
+                        else zonesDom.current.delete(z.id);
+                      }}
                       className={`zone ${z.validee ? "zone-validee" : "zone-proposee"} ${transparence ? "zone-transparente" : ""} ${selection === z.id ? "zone-selection" : ""}`}
                       style={{ left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.largeur * 100}%`, height: `${z.hauteur * 100}%` }}
                       title={`${MOTIF_OCCULTATION[z.motif]}${z.validee ? "" : " (proposée)"}`}
                       aria-label={`Zone ${MOTIF_OCCULTATION[z.motif]}, ${z.validee ? "validée" : "à vérifier"}`}
-                      onPointerDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => debutManipulation(e, z, "deplacer")}
+                      onPointerMove={mouvementManipulation}
+                      onPointerUp={finManipulation}
+                      onPointerCancel={finManipulation}
                       onClick={() => setSelection(z.id)}
-                    />
+                    >
+                      {selection === z.id &&
+                        (["nw", "ne", "sw", "se"] as const).map((coin) => (
+                          <span key={coin} className={`poignee poignee-${coin}`} aria-hidden onPointerDown={(e) => debutManipulation(e, z, coin)} />
+                        ))}
+                    </button>
                   ))}
                 {trace?.page === p.numero && (
                   <div
@@ -394,6 +574,18 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
             {zones.length} zone{zones.length > 1 ? "s" : ""} · <strong>{aVerifier}</strong> à vérifier
           </p>
 
+          <button
+            type="button"
+            className="bouton bouton-principal bouton-large"
+            disabled={occupe || enCours || pages.length === 0 || doc.statut === "NON_PUBLIABLE" || doc.statut === "PUBLIE"}
+            onClick={terminer}
+          >
+            Terminer et passer au suivant
+          </button>
+          <p className="discret petit" style={{ margin: "6px 0 14px" }}>
+            <kbd>Ctrl</kbd> + <kbd>Entrée</kbd> · valide les zones, génère la version occultée et la publie automatiquement.
+          </p>
+
           <label className="champ">
             <span>Motif des nouvelles zones</span>
             <select value={motif} onChange={(e) => setMotif(e.target.value as MotifOccultation)}>
@@ -407,10 +599,34 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
           <label className="case">
             <input type="checkbox" checked={transparence} onChange={(e) => setTransparence(e.target.checked)} /> Voir sous les masques
           </label>
-          <p className="discret petit">
-            Tracez un rectangle sur la page pour masquer. Cliquez une zone pour la modifier · <kbd>Entrée</kbd> valider · <kbd>Suppr</kbd>{" "}
-            supprimer.
-          </p>
+          <ul className="aide-clavier discret petit">
+            <li>Tracez un rectangle sur la page pour masquer ; glissez une zone ou ses coins pour l&apos;ajuster.</li>
+            <li>
+              <kbd>Tab</kbd> / <kbd>Maj</kbd>+<kbd>Tab</kbd> zone à vérifier suivante / précédente
+            </li>
+            <li>
+              <kbd>Entrée</kbd> valider · <kbd>Suppr</kbd> supprimer (puis zone suivante)
+            </li>
+          </ul>
+
+          {sources.length > 0 && (
+            <div className="champ">
+              <span>Reprendre les zones manuelles de…</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select value={source} onChange={(e) => setSource(e.target.value)} aria-label="Document source">
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.titre} ({s.nbZones})
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="bouton" onClick={copierZones} disabled={pages.length === 0}>
+                  Copier
+                </button>
+              </div>
+              <small className="discret">Pratique pour les documents au même modèle (bons de commande, délibérations…).</small>
+            </div>
+          )}
 
           {zoneSel && (
             <div className="zone-panneau">
@@ -426,11 +642,11 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
               </select>
               <div className="boutons">
                 {!zoneSel.validee && (
-                  <button type="button" className="bouton bouton-principal" onClick={() => modifierZone(zoneSel.id, { validee: true })}>
+                  <button type="button" className="bouton bouton-principal" onClick={() => validerEtSuivre(zoneSel.id)}>
                     Valider
                   </button>
                 )}
-                <button type="button" className="bouton" onClick={() => supprimerZone(zoneSel.id)}>
+                <button type="button" className="bouton" onClick={() => supprimerEtSuivre(zoneSel.id)}>
                   Supprimer
                 </button>
               </div>

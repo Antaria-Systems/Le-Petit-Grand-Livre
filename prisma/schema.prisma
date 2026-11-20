@@ -188,6 +188,8 @@ model Document {
   // Travail en attente pour le worker, et dernière erreur éventuelle
   travail     TravailDocument?
   erreur      String?
+  // « Terminer » dans l'éditeur : publier dès que la version occultée est générée
+  publierApresGeneration Boolean @default(false)
   pages       PageDocument[]
   zones       ZoneOccultation[]
   indemnites  IndemniteFonction[]

@@ -15,6 +15,46 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
   });
   if (!doc) notFound();
 
+  // File de vérification : même ordre que la liste de l'admin (catégorie, puis titre).
+  const file = await db.document.findMany({
+    where: { statut: "A_VERIFIER", OR: [{ travail: null }, { id }] },
+    orderBy: [{ categorie: "asc" }, { titre: "asc" }],
+    select: { id: true },
+  });
+  const ids = file.map((d) => d.id);
+  const i = ids.indexOf(id);
+  const autres = ids.filter((x) => x !== id);
+  const navigation = {
+    position: i >= 0 ? i + 1 : null,
+    total: ids.length,
+    suivantId: autres.length ? (i >= 0 ? ids[(i + 1) % ids.length] : ids[0]) : null,
+    precedentId: autres.length ? (i >= 0 ? ids[(i - 1 + ids.length) % ids.length] : ids[ids.length - 1]) : null,
+  };
+  if (navigation.suivantId === id) navigation.suivantId = null;
+  if (navigation.precedentId === id) navigation.precedentId = null;
+
+  // Documents de la même commune dont on peut reprendre les zones tracées à la main (récents d'abord).
+  const candidats = await db.document.findMany({
+    where: { communeCode: doc.communeCode, id: { not: id }, zones: { some: { source: "MANUEL" } } },
+    select: {
+      id: true,
+      titre: true,
+      categorie: true,
+      zones: { where: { source: "MANUEL" }, select: { creeeLe: true } },
+    },
+  });
+  const sources = candidats
+    .map((c) => ({
+      id: c.id,
+      titre: c.titre,
+      nbZones: c.zones.length,
+      memeType: c.categorie === doc.categorie,
+      recent: Math.max(...c.zones.map((z) => z.creeeLe.getTime())),
+    }))
+    .sort((a, b) => Number(b.memeType) - Number(a.memeType) || b.recent - a.recent)
+    .slice(0, 20)
+    .map(({ id, titre, nbZones }) => ({ id, titre, nbZones }));
+
   return (
     <section className="section" style={{ paddingTop: 20 }}>
       <div className="conteneur">
@@ -22,6 +62,9 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
           <Link href="/admin">← Tous les documents</Link> · <Link href={`/communes/${doc.commune.slug}#documents`}>{doc.commune.nom}</Link>
         </p>
         <EditeurOccultation
+          key={doc.id}
+          navigation={navigation}
+          sources={sources}
           document={{
             id: doc.id,
             titre: doc.titre,

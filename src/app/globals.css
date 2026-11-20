@@ -772,3 +772,23 @@ kbd { font: inherit; font-size: 0.8em; padding: 1px 5px; border: 1px solid var(-
 .visionneuse.mode-deplacement .zone { cursor: grab; }
 .visionneuse.mode-deplacement:active,
 .visionneuse.mode-deplacement:active .page-calque { cursor: grabbing; }
+
+/* Éditeur : vérification à la chaîne */
+.nav-verification { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 0.95rem; }
+.bouton-large { width: 100%; justify-content: center; padding: 12px 16px; }
+.aide-clavier { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 4px; }
+.zone { overflow: visible; }
+.zone-selection { cursor: move; }
+.poignee {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid var(--focus);
+  border-radius: 3px;
+  z-index: 3;
+}
+.poignee-nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.poignee-ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.poignee-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+.poignee-se { right: -7px; bottom: -7px; cursor: nwse-resize; }

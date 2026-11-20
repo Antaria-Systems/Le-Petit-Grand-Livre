@@ -44,12 +44,19 @@ La base de données est sur un réseau Docker interne, sans accès à Internet.
 docker compose run --rm --user 0 -v "/chemin/du/lot:/import:ro" tools \
   sh -c 'npx tsx scripts/import-documents.ts --commune 11199 --dossier /import --lot "Nom du lot" && chown -R node:node /data/storage'
 
-# 2. Le worker analyse (rendu, OCR 300 dpi, détection IBAN / BIC / RIB / téléphones / e-mails)
+# 2. Le worker analyse (rendu, OCR 300 dpi, détection IBAN / BIC / RIB / téléphones / e-mails,
+#    signatures et tampons par analyse d'image)
 docker compose logs -f worker
 
 # 3. Valider dans l'admin : /admin  (connexion Authentik, groupe AUTH_ADMIN_GROUP)
 #    tracer les signatures et noms à masquer → « Générer la version occultée » → « Publier »
 ```
+
+Outils :
+
+- `scripts/detecter-signatures.ts` — propose des zones « Signature » sur les documents encore à vérifier
+- `scripts/evaluer-signatures.ts` — mesure le détecteur de signatures contre les zones tracées à la main
+- `scripts/supprimer-lot.ts` — supprime un lot (simulation par défaut, refuse les lots publiés)
 
 Règles appliquées :
 

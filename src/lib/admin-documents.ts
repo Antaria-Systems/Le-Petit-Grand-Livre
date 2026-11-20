@@ -9,4 +9,6 @@ export async function invaliderVersionPublique(id: string) {
     where: { id, statut: { in: ["OCCULTE", "PUBLIE"] } },
     data: { statut: "A_VERIFIER", publieLe: null },
   });
+  // Une publication automatique demandée par « Terminer » est annulée : il faudra re-terminer.
+  await db.document.updateMany({ where: { id, publierApresGeneration: true }, data: { publierApresGeneration: false } });
 }

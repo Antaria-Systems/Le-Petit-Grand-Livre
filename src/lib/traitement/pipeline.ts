@@ -12,6 +12,7 @@ import { site } from "../config";
 import { db } from "../db";
 import { ecrireChiffre, ecrirePublic, lireOriginal, sha256, supprimerStockage } from "../stockage";
 import { detecter } from "./detection";
+import { detecterSignatures } from "./signatures";
 import { avecDossierTemporaire, DPI, DPI_OCR, executer, ocr } from "./outils";
 
 async function nombrePages(pdf: string): Promise<number> {
@@ -48,7 +49,7 @@ export async function analyser(id: string): Promise<void> {
     for (let numero = 1; numero <= n; numero++) {
       const png = await rendrePage(pdf, dossier, numero, DPI_OCR);
       const { width = 0, height = 0 } = await sharp(png).metadata();
-      const zones = detecter(await ocr(png, DPI_OCR), width, height, exclusions);
+      const zones = [...detecter(await ocr(png, DPI_OCR), width, height, exclusions), ...(await detecterSignatures(png))];
       // Aperçu ramené à la résolution publique (les zones sont en coordonnées relatives).
       const largeurApercu = Math.round((width * DPI) / DPI_OCR);
       const apercu = await sharp(png).resize({ width: largeurApercu }).jpeg({ quality: 80, mozjpeg: true }).toBuffer({ resolveWithObject: true });
@@ -117,7 +118,10 @@ export async function generer(id: string): Promise<void> {
     data: {
       cheminPublic: chemin,
       sha256Public: sha256(pdfPublic),
-      statut: doc.statut === "PUBLIE" ? "PUBLIE" : "OCCULTE",
+      // « Terminer » demandé dans l'éditeur : publication dès que la version occultée existe.
+      ...(doc.publierApresGeneration
+        ? { statut: "PUBLIE" as const, publieLe: doc.publieLe ?? new Date(), publierApresGeneration: false }
+        : { statut: doc.statut === "PUBLIE" ? ("PUBLIE" as const) : ("OCCULTE" as const) }),
       travail: null,
       erreur: null,
     },
