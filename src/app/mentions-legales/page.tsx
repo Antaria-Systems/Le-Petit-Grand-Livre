@@ -15,6 +15,11 @@ export default function MentionsLegales() {
           Association <ACompleter valeur={site.asso.nom} libelle="nom" />, association loi 1901
           <br />
           RNA : <ACompleter valeur={site.asso.rna} libelle="numéro RNA" />
+          {site.asso.siren && (
+            <>
+              {" "}· SIREN : {site.asso.siren}
+            </>
+          )}
           <br />
           Siège : <ACompleter valeur={site.asso.adresse} libelle="adresse du siège" />
           <br />

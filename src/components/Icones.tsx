@@ -1,9 +1,11 @@
 type P = { taille?: number; className?: string };
 const base = (t: number) => ({ width: t, height: t, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true });
 
+/** Livre ouvert : le « grand livre » comptable. */
 export const IconeLogo = ({ taille = 18 }: P) => (
-  <svg {...base(taille)} strokeWidth={2.4}>
-    <path d="M6 18v-5M12 18V8M18 18V5" />
+  <svg {...base(taille)} strokeWidth={2}>
+    <path d="M12 6.5C10.2 5.2 7.6 4.6 4 4.6v13.2c3.6 0 6.2.6 8 1.9 1.8-1.3 4.4-1.9 8-1.9V4.6c-3.6 0-6.2.6-8 1.9Z" />
+    <path d="M12 6.5v13.2" />
   </svg>
 );
 export const IconeRecherche = ({ taille = 18, className }: P) => (

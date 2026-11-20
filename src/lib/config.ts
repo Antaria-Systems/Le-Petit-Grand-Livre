@@ -5,6 +5,7 @@ export const site = {
   asso: {
     nom: process.env.ASSO_NOM ?? "",
     rna: process.env.ASSO_RNA ?? "",
+    siren: process.env.ASSO_SIREN ?? "",
     adresse: process.env.ASSO_ADRESSE ?? "",
     email: process.env.ASSO_EMAIL ?? "",
   },

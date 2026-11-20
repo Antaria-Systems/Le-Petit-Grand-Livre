@@ -21,6 +21,13 @@ export default function APropos() {
           prévu par le CRPA, puis les publier sous une forme que chacun peut comprendre.
         </p>
 
+        <h2>Pourquoi ce nom</h2>
+        <p>
+          En comptabilité, le <em>grand livre</em> est le registre où sont inscrites toutes les opérations
+          d&apos;une organisation. Celui des communes existe, mais il est réservé aux spécialistes. {site.nom} en est la
+          version lisible par tout le monde.
+        </p>
+
         <h2>Qui sommes-nous</h2>
         <p>
           La plateforme est éditée par l&apos;association <ACompleter valeur={site.asso.nom} libelle="nom de l'association" />.
