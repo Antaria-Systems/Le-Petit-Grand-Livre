@@ -11,7 +11,7 @@ import sharp from "sharp";
 import { site } from "../config";
 import { db } from "../db";
 import { ecrireChiffre, ecrirePublic, lireOriginal, sha256, supprimerStockage } from "../stockage";
-import { detecter } from "./detection";
+import { detecter, ibanValide } from "./detection";
 import { detecterSignatures } from "./signatures";
 import { avecDossierTemporaire, DPI, DPI_OCR, executer, ocr } from "./outils";
 
@@ -68,11 +68,32 @@ export async function analyser(id: string): Promise<void> {
   });
 }
 
+/** Adresses génériques d'organisations (pas des personnes) : tolérées dans les versions publiques. */
+const ADRESSES_GENERIQUES =
+  /^(contact|info|infos|accueil|secretariat|secretariat-general|mairie|compta|comptabilite|facturation|factures?|commercial|commerciale|services?|sav|dpo|rgpd|dataprivacy|privacy|no-?reply|administration|direction|devis|commandes?|agence|courrier)([._-][a-z0-9]+)?@/i;
+
+/**
+ * Contrôle de la version publique, sur son propre texte : une adresse électronique nominative ou
+ * un IBAN encore lisible bloque la publication automatique.
+ */
+async function controlerVersionPublique(pdf: string, emailsAutorises: string[]): Promise<string[]> {
+  const texte = await executer("pdftotext", [pdf, "-"]);
+  const alertes = new Set<string>();
+  for (const m of texte.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? []) {
+    if (!ADRESSES_GENERIQUES.test(m) && !emailsAutorises.includes(m.toLowerCase())) alertes.add(m);
+  }
+  for (const m of texte.match(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,4})?\b/g) ?? []) {
+    if (ibanValide(m)) alertes.add(m);
+  }
+  return [...alertes];
+}
+
 export async function generer(id: string): Promise<void> {
-  const doc = await db.document.findUniqueOrThrow({ where: { id }, include: { zones: true } });
+  const doc = await db.document.findUniqueOrThrow({ where: { id }, include: { zones: true, commune: { select: { mairieEmail: true } } } });
   if (doc.zones.some((z) => !z.validee)) throw new Error("Des zones proposées n'ont pas encore été validées ou supprimées");
   const original = await lireOriginal(doc.cheminChiffre);
 
+  let alertes: string[] = [];
   const pdfPublic = await avecDossierTemporaire(async (dossier) => {
     const pdf = path.join(dossier, "original.pdf");
     await writeFile(pdf, original, { mode: 0o600 });
@@ -109,7 +130,11 @@ export async function generer(id: string): Promise<void> {
     sortie.setAuthor("");
     sortie.setSubject("Document administratif communiqué au titre du CRPA, mentions protégées occultées");
     sortie.setKeywords([]);
-    return Buffer.from(await sortie.save());
+    const octets = Buffer.from(await sortie.save());
+    const verif = path.join(dossier, "verif.pdf");
+    await writeFile(verif, octets);
+    alertes = await controlerVersionPublique(verif, doc.commune.mairieEmail ? [doc.commune.mairieEmail.toLowerCase()] : []);
+    return octets;
   });
 
   const chemin = await ecrirePublic(id, pdfPublic);
@@ -118,12 +143,17 @@ export async function generer(id: string): Promise<void> {
     data: {
       cheminPublic: chemin,
       sha256Public: sha256(pdfPublic),
-      // « Terminer » demandé dans l'éditeur : publication dès que la version occultée existe.
-      ...(doc.publierApresGeneration
-        ? { statut: "PUBLIE" as const, publieLe: doc.publieLe ?? new Date(), publierApresGeneration: false }
-        : { statut: doc.statut === "PUBLIE" ? ("PUBLIE" as const) : ("OCCULTE" as const) }),
+      // « Terminer » demandé dans l'éditeur : publication dès que la version occultée existe,
+      // sauf si le contrôle trouve encore des coordonnées lisibles.
+      ...(alertes.length > 0
+        ? { statut: "OCCULTE" as const, publierApresGeneration: false }
+        : doc.publierApresGeneration
+          ? { statut: "PUBLIE" as const, publieLe: doc.publieLe ?? new Date(), publierApresGeneration: false }
+          : { statut: doc.statut === "PUBLIE" ? ("PUBLIE" as const) : ("OCCULTE" as const) }),
       travail: null,
-      erreur: null,
+      erreur: alertes.length
+        ? `Contrôle avant publication : encore lisible dans la version occultée → ${alertes.join(", ")}. Masquez-le, ou publiez manuellement si c'est une coordonnée publique.`
+        : null,
     },
   });
 }
