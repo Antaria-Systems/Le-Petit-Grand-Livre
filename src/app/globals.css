@@ -749,3 +749,26 @@ kbd { font: inherit; font-size: 0.8em; padding: 1px 5px; border: 1px solid var(-
 .envoi-nom { font-weight: 550; overflow-wrap: anywhere; flex: 1 1 200px; }
 .liste-envois progress { width: 140px; accent-color: var(--accent); }
 .detail-import { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
+
+/* Visionneuse de l'éditeur : zoom propre, défilement interne */
+.barre-zoom { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+.barre-zoom .bouton { padding: 4px 12px; font-size: 1rem; min-width: 38px; justify-content: center; }
+.barre-zoom .zoom-valeur { min-width: 72px; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.barre-zoom .discret { margin-left: 8px; }
+.visionneuse {
+  height: calc(100vh - 230px);
+  min-height: 420px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.visionneuse-vide { display: none; }
+.visionneuse-contenu { margin: 0 auto; padding: 16px; box-sizing: border-box; }
+.visionneuse-contenu .page-doc:last-child { margin-bottom: 0; }
+.visionneuse.mode-deplacement,
+.visionneuse.mode-deplacement .page-calque,
+.visionneuse.mode-deplacement .zone { cursor: grab; }
+.visionneuse.mode-deplacement:active,
+.visionneuse.mode-deplacement:active .page-calque { cursor: grabbing; }

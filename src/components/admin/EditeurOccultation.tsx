@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CategorieDocument, MotifOccultation, StatutDocument, TravailDocument } from "@/generated/prisma/enums";
 import { CATEGORIES, MOTIFS } from "@/lib/admin-schemas";
 import { CATEGORIE_DOCUMENT, MOTIF_OCCULTATION, STATUT_DOCUMENT } from "@/lib/statuts";
@@ -56,6 +56,110 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
   const [message, setMessage] = useState<{ type: "ok" | "erreur"; texte: string } | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [meta, setMeta] = useState({ titre: initial.titre, categorie: initial.categorie, annee: initial.annee?.toString() ?? "", notes: initial.notes ?? "" });
+
+  /* ─────────── Zoom de la visionneuse (indépendant du zoom du navigateur) ─────────── */
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 4;
+  const [zoom, setZoom] = useState(1);
+  const [modeDeplacement, setModeDeplacement] = useState(false);
+  const visionneuse = useRef<HTMLDivElement>(null);
+  const zoomActuel = useRef(1);
+  const ancre = useRef<{ x: number; y: number; facteur: number; gauche: number; haut: number } | null>(null);
+  const glissement = useRef<{ x: number; y: number; gauche: number; haut: number } | null>(null);
+
+  /** Change le zoom en gardant immobile le point visé (curseur, ou centre de la visionneuse). */
+  const zoomer = useCallback((cible: number, point?: { x: number; y: number }) => {
+    const v = visionneuse.current;
+    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(cible * 100) / 100));
+    if (!v || z === zoomActuel.current) return;
+    ancre.current = {
+      x: point?.x ?? v.clientWidth / 2,
+      y: point?.y ?? v.clientHeight / 2,
+      facteur: z / zoomActuel.current,
+      gauche: v.scrollLeft,
+      haut: v.scrollTop,
+    };
+    zoomActuel.current = z;
+    setZoom(z);
+    try {
+      localStorage.setItem("editeur-zoom", String(z));
+    } catch {
+      /* stockage indisponible */
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    const v = visionneuse.current;
+    const a = ancre.current;
+    if (!v || !a) return;
+    v.scrollLeft = (a.gauche + a.x) * a.facteur - a.x;
+    v.scrollTop = (a.haut + a.y) * a.facteur - a.y;
+    ancre.current = null;
+  }, [zoom]);
+
+  useEffect(() => {
+    try {
+      const memo = Number(localStorage.getItem("editeur-zoom"));
+      if (memo >= ZOOM_MIN && memo <= ZOOM_MAX) {
+        zoomActuel.current = memo;
+        setZoom(memo);
+      }
+    } catch {
+      /* stockage indisponible */
+    }
+    // Ctrl + molette (ou pincement sur pavé tactile) : zoom sur le curseur, sans zoomer toute la page.
+    const v = visionneuse.current;
+    if (!v) return;
+    const roue = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const r = v.getBoundingClientRect();
+      zoomer(zoomActuel.current * Math.exp(-e.deltaY * 0.0025), { x: e.clientX - r.left, y: e.clientY - r.top });
+    };
+    v.addEventListener("wheel", roue, { passive: false });
+    return () => v.removeEventListener("wheel", roue);
+  }, [zoomer]);
+
+  useEffect(() => {
+    // Les zones sont des boutons : Espace doit déplacer la vue même quand une zone a le focus.
+    const dansChamp = (e: KeyboardEvent) => (e.target as HTMLElement).closest("input, select, textarea");
+    function bas(e: KeyboardEvent) {
+      if (dansChamp(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "+" || e.key === "=") zoomer(zoomActuel.current * 1.25);
+      else if (e.key === "-") zoomer(zoomActuel.current / 1.25);
+      else if (e.key === "0") zoomer(1);
+      else if (e.code === "Space") setModeDeplacement(true);
+      else return;
+      e.preventDefault();
+    }
+    function haut(e: KeyboardEvent) {
+      if (e.code !== "Space") return;
+      setModeDeplacement(false);
+      if (!dansChamp(e)) e.preventDefault(); // pas de « clic » sur le bouton qui a le focus
+    }
+    window.addEventListener("keydown", bas);
+    window.addEventListener("keyup", haut);
+    return () => {
+      window.removeEventListener("keydown", bas);
+      window.removeEventListener("keyup", haut);
+    };
+  }, [zoomer]);
+
+  /** Espace + glisser : déplacement dans la page zoomée (le tracé de zones est suspendu). */
+  function debutDeplacement(e: React.PointerEvent<HTMLDivElement>) {
+    if (!modeDeplacement || !visionneuse.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    glissement.current = { x: e.clientX, y: e.clientY, gauche: visionneuse.current.scrollLeft, haut: visionneuse.current.scrollTop };
+  }
+
+  function deplacementVue(e: React.PointerEvent<HTMLDivElement>) {
+    const g = glissement.current;
+    if (!g || !visionneuse.current) return;
+    visionneuse.current.scrollLeft = g.gauche - (e.clientX - g.x);
+    visionneuse.current.scrollTop = g.haut - (e.clientY - g.y);
+  }
 
   const aVerifier = zones.filter((z) => !z.validee).length;
   const zoneSel = zones.find((z) => z.id === selection) ?? null;
@@ -206,6 +310,31 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
             <strong>{enCours ? "Analyse en cours…" : "Aucune page analysée."}</strong>
           </div>
         )}
+        {pages.length > 0 && (
+          <div className="barre-zoom" role="toolbar" aria-label="Zoom">
+            <button type="button" className="bouton" onClick={() => zoomer(zoom / 1.25)} disabled={zoom <= ZOOM_MIN} aria-label="Dézoomer">
+              −
+            </button>
+            <button type="button" className="bouton zoom-valeur" onClick={() => zoomer(1)} title="Revenir à la largeur (0)">
+              {Math.round(zoom * 100)} %
+            </button>
+            <button type="button" className="bouton" onClick={() => zoomer(zoom * 1.25)} disabled={zoom >= ZOOM_MAX} aria-label="Zoomer">
+              +
+            </button>
+            <span className="discret petit">
+              <kbd>Ctrl</kbd> + molette pour zoomer · <kbd>Espace</kbd> + glisser pour se déplacer
+            </span>
+          </div>
+        )}
+        <div
+          ref={visionneuse}
+          className={`visionneuse${modeDeplacement ? " mode-deplacement" : ""}${pages.length === 0 ? " visionneuse-vide" : ""}`}
+          onPointerDownCapture={debutDeplacement}
+          onPointerMove={deplacementVue}
+          onPointerUp={() => (glissement.current = null)}
+          onPointerCancel={() => (glissement.current = null)}
+        >
+          <div className="visionneuse-contenu" style={{ width: `${zoom * 100}%` }}>
         {pages.map((p) => (
           <figure key={p.numero} className="page-doc">
             <figcaption className="discret petit">
@@ -250,6 +379,8 @@ export function EditeurOccultation({ document: initial, pages, zonesInitiales }:
             </div>
           </figure>
         ))}
+          </div>
+        </div>
       </div>
 
       <aside className="editeur-panneau">
