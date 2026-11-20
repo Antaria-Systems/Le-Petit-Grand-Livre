@@ -8,6 +8,13 @@ const schema = z.object({
   categorie: z.enum(CATEGORIES).optional(),
   annee: z.number().int().min(1990).max(2100).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  entreprise: z.string().trim().max(200).nullable().optional(),
+  objet: z.string().trim().max(2000).nullable().optional(),
+  montantTTC: z.number().nonnegative().max(1e9).nullable().optional(),
+  montantHT: z.number().nonnegative().max(1e9).nullable().optional(),
+  dateDocument: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  copie: z.boolean().optional(),
+  operationId: z.number().int().nullable().optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +23,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const donnees = schema.safeParse(await req.json());
   if (!donnees.success) return Response.json({ erreur: donnees.error.message }, { status: 400 });
-  const doc = await db.document.update({ where: { id }, data: donnees.data });
+  const { dateDocument, operationId, ...reste } = donnees.data;
+  if (operationId) {
+    const [doc, op] = await Promise.all([
+      db.document.findUnique({ where: { id }, select: { communeCode: true } }),
+      db.operation.findUnique({ where: { id: operationId }, select: { communeCode: true } }),
+    ]);
+    if (!doc || !op || doc.communeCode !== op.communeCode) return Response.json({ erreur: "Chantier d'une autre commune" }, { status: 400 });
+  }
+  const doc = await db.document.update({
+    where: { id },
+    data: {
+      ...reste,
+      ...(operationId !== undefined ? { operationId } : {}),
+      ...(dateDocument !== undefined
+        ? { dateDocument: dateDocument ? new Date(`${dateDocument}T00:00:00Z`) : null, ...(dateDocument ? { annee: Number(dateDocument.slice(0, 4)) } : {}) }
+        : {}),
+    },
+  });
   return Response.json({ ok: true, titre: doc.titre });
 }
 

@@ -5,6 +5,7 @@
 import "dotenv/config";
 import { db } from "../src/lib/db";
 import { departementsActifs } from "../src/lib/config";
+import { projeterDepartement, type Geometrie } from "../src/lib/carte";
 import { normaliser, slugCommune } from "../src/lib/texte";
 import { getJson } from "./http";
 
@@ -47,6 +48,16 @@ async function main() {
       }),
     );
     console.log(`Département ${dep} : ${communes.length} communes`);
+
+    // Carte de situation : contours simplifiés de toutes les communes du département
+    const geo = await getJson<{ features: { properties: { code: string }; geometry: Geometrie }[] }>(
+      `${GEO}/departements/${dep}/communes?fields=code,contour&format=geojson&geometry=contour`,
+    );
+    const { viewBox, chemins } = projeterDepartement(new Map(geo.features.map((f) => [f.properties.code, f.geometry])));
+    await db.departement.update({ where: { code: dep }, data: { carteViewBox: viewBox } });
+    await db.$transaction([...chemins].map(([code, d]) => db.commune.updateMany({ where: { code }, data: { cheminCarte: d } })));
+    const taille = [...chemins.values()].reduce((s, d) => s + d.length, 0);
+    console.log(`Département ${dep} : carte ${viewBox}, ${Math.round(taille / 1024)} Ko de tracés`);
   }
 }
 

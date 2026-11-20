@@ -26,6 +26,8 @@ model Departement {
   region     Region    @relation(fields: [regionCode], references: [code])
   // Département couvert par la plateforme (communes importées, demandes envoyées)
   actif      Boolean   @default(false)
+  // Cadre de la carte du département (« 0 0 largeur hauteur »), dans lequel sont tracées les communes
+  carteViewBox String?
   communes   Commune[]
 
   @@index([regionCode])
@@ -45,6 +47,8 @@ model Commune {
   epciNom         String?
   // Strate de population OFGL (0 = moins de 100 hab. … 10 = 100 000 hab. et plus)
   strate          Int?
+  // Contour simplifié (chemin SVG) dans le cadre de la carte du département
+  cheminCarte     String?
 
   // Contact de la mairie (Annuaire de l'administration, service-public.fr)
   mairieEmail     String?
@@ -129,22 +133,26 @@ model FraisFonction {
   @@index([communeCode, annee])
 }
 
-// Travaux, achats et marchés (factures, devis, marchés publics).
+// Chantier ou opération : regroupe délibérations, devis, bons de commande et factures.
 model Operation {
   id          Int             @id @default(autoincrement())
   communeCode String
   commune     Commune         @relation(fields: [communeCode], references: [code], onDelete: Cascade)
+  slug        String
   intitule    String
-  categorie   String? // "Voirie", "Bâtiments", "Éclairage public"…
+  categorie   String? // "Voirie", "Bâtiments scolaires"…
+  lieu        String?
+  description String?
   annee       Int?
   date        DateTime?       @db.Date
+  // Montant voté ou commandé (délibération, bons de commande), quand il est connu
   montantHT   Decimal?        @db.Decimal(14, 2)
   montantTTC  Decimal?        @db.Decimal(14, 2)
-  prestataire String? // personne morale uniquement
+  prestataire String? // personnes morales ou noms commerciaux
   statut      StatutOperation @default(REALISEE)
-  documentId  String?
-  document    Document?       @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documents   Document[]
 
+  @@unique([communeCode, slug])
   @@index([communeCode, annee])
 }
 
@@ -177,6 +185,17 @@ model Document {
   cheminPublic     String?
   sha256Public     String?
 
+  // Informations relevées sur le document (affichées sur la fiche commune)
+  entreprise  String?
+  objet       String?
+  montantHT   Decimal?          @db.Decimal(14, 2)
+  // Facture : montant payé (net à payer) · devis / bon de commande / délibération : montant total
+  montantTTC  Decimal?          @db.Decimal(14, 2)
+  // Second exemplaire d'un document déjà présent : exclu des totaux
+  copie       Boolean           @default(false)
+  operationId Int?
+  operation   Operation?        @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
   demandeId   String?
   demande     Demande?          @relation(fields: [demandeId], references: [id], onDelete: SetNull)
   messageId   String?
@@ -194,7 +213,6 @@ model Document {
   zones       ZoneOccultation[]
   indemnites  IndemniteFonction[]
   frais       FraisFonction[]
-  operations  Operation[]
 
   recuLe      DateTime          @default(now())
   publieLe    DateTime?

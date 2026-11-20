@@ -7,7 +7,7 @@ import { Infobulle, useLargeur } from "./commun";
 export type Part = { libelle: string; valeur: number; couleur: string; encre: string };
 
 /** Un tout découpé en parts : blocs de 28px, part écrite dans le bloc quand elle y tient. */
-export function BarreSegmentee({ parts, description }: { parts: Part[]; description: string }) {
+export function BarreSegmentee({ parts, description, legende = false }: { parts: Part[]; description: string; legende?: boolean }) {
   const { ref, largeur } = useLargeur();
   const [actif, setActif] = useState<number | null>(null);
   const visibles = parts.filter((p) => p.valeur > 0);
@@ -52,7 +52,7 @@ export function BarreSegmentee({ parts, description }: { parts: Part[]; descript
           />
         )}
       </div>
-      <ul className="legende">
+      {legende && <ul className="legende">
         {blocs.map((b) => (
           <li key={b.libelle}>
             <span className="cle-carre" style={{ background: b.couleur }} aria-hidden />
@@ -60,7 +60,7 @@ export function BarreSegmentee({ parts, description }: { parts: Part[]; descript
             {!b.tient && <span className="discret"> ({b.texte})</span>}
           </li>
         ))}
-      </ul>
+      </ul>}
     </div>
   );
 }

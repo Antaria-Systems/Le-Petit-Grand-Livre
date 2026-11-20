@@ -30,6 +30,13 @@ type Doc = {
   erreur: string | null;
   nomOriginal: string;
   aVersionPublique: boolean;
+  entreprise: string | null;
+  objet: string | null;
+  montantTTC: number | null;
+  montantHT: number | null;
+  dateDocument: string | null;
+  copie: boolean;
+  operationId: number | null;
 };
 
 type Page = { numero: number; largeur: number; hauteur: number };
@@ -68,12 +75,14 @@ export function EditeurOccultation({
   zonesInitiales,
   navigation,
   sources,
+  chantiers,
 }: {
   document: Doc;
   pages: Page[];
   zonesInitiales: Zone[];
   navigation: Navigation;
   sources: Source[];
+  chantiers: { id: number; intitule: string }[];
 }) {
   const router = useRouter();
   const [doc, setDoc] = useState(initial);
@@ -91,7 +100,19 @@ export function EditeurOccultation({
   const [trace, setTrace] = useState<Trace | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "erreur"; texte: string } | null>(null);
   const [occupe, setOccupe] = useState(false);
-  const [meta, setMeta] = useState({ titre: initial.titre, categorie: initial.categorie, annee: initial.annee?.toString() ?? "", notes: initial.notes ?? "" });
+  const [meta, setMeta] = useState({
+    titre: initial.titre,
+    categorie: initial.categorie,
+    annee: initial.annee?.toString() ?? "",
+    notes: initial.notes ?? "",
+    entreprise: initial.entreprise ?? "",
+    objet: initial.objet ?? "",
+    montantTTC: initial.montantTTC?.toString().replace(".", ",") ?? "",
+    montantHT: initial.montantHT?.toString().replace(".", ",") ?? "",
+    dateDocument: initial.dateDocument ?? "",
+    copie: initial.copie,
+    operationId: initial.operationId?.toString() ?? "",
+  });
 
   /* ─────────── Zoom de la visionneuse (indépendant du zoom du navigateur) ─────────── */
   const ZOOM_MIN = 0.5;
@@ -442,11 +463,19 @@ export function EditeurOccultation({
   async function enregistrerMeta(e: React.FormEvent) {
     e.preventDefault();
     try {
+      const montant = (v: string) => (v.trim() ? Number(v.replace(/\s/g, "").replace(",", ".")) : null);
       await appel(`/api/admin/documents/${doc.id}`, "PATCH", {
         titre: meta.titre,
         categorie: meta.categorie,
         annee: meta.annee ? Number(meta.annee) : null,
         notes: meta.notes || null,
+        entreprise: meta.entreprise || null,
+        objet: meta.objet || null,
+        montantTTC: montant(meta.montantTTC),
+        montantHT: montant(meta.montantHT),
+        dateDocument: meta.dateDocument || null,
+        copie: meta.copie,
+        operationId: meta.operationId ? Number(meta.operationId) : null,
       });
       signaler("ok", "Informations enregistrées.");
     } catch (err) {
@@ -720,6 +749,43 @@ export function EditeurOccultation({
           <label className="champ">
             <span>Année</span>
             <input type="number" min={1990} max={2100} value={meta.annee} onChange={(e) => setMeta({ ...meta, annee: e.target.value })} />
+          </label>
+          <label className="champ">
+            <span>Date du document</span>
+            <input type="date" value={meta.dateDocument} onChange={(e) => setMeta({ ...meta, dateDocument: e.target.value })} />
+          </label>
+          <label className="champ">
+            <span>Entreprise ou organisme</span>
+            <input value={meta.entreprise} onChange={(e) => setMeta({ ...meta, entreprise: e.target.value })} maxLength={200} />
+          </label>
+          <label className="champ">
+            <span>Objet (affiché sur la fiche)</span>
+            <textarea rows={2} value={meta.objet} onChange={(e) => setMeta({ ...meta, objet: e.target.value })} />
+          </label>
+          <div className="grille-champs">
+            <label className="champ">
+              <span>Montant TTC (€)</span>
+              <input inputMode="decimal" value={meta.montantTTC} onChange={(e) => setMeta({ ...meta, montantTTC: e.target.value })} placeholder="Facture : net payé" />
+            </label>
+            <label className="champ">
+              <span>Montant HT (€)</span>
+              <input inputMode="decimal" value={meta.montantHT} onChange={(e) => setMeta({ ...meta, montantHT: e.target.value })} />
+            </label>
+          </div>
+          <label className="champ">
+            <span>Chantier</span>
+            <select value={meta.operationId} onChange={(e) => setMeta({ ...meta, operationId: e.target.value })}>
+              <option value="">Aucun</option>
+              {chantiers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.intitule}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="case">
+            <input type="checkbox" checked={meta.copie} onChange={(e) => setMeta({ ...meta, copie: e.target.checked })} /> Second exemplaire
+            (exclu des totaux)
           </label>
           <label className="champ">
             <span>Notes internes</span>

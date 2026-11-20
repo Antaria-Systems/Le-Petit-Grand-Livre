@@ -33,6 +33,8 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
   if (navigation.suivantId === id) navigation.suivantId = null;
   if (navigation.precedentId === id) navigation.precedentId = null;
 
+  const chantiers = await db.operation.findMany({ where: { communeCode: doc.communeCode }, orderBy: { intitule: "asc" }, select: { id: true, intitule: true } });
+
   // Documents de la même commune dont on peut reprendre les zones tracées à la main (récents d'abord).
   const candidats = await db.document.findMany({
     where: { communeCode: doc.communeCode, id: { not: id }, zones: { some: { source: "MANUEL" } } },
@@ -65,6 +67,7 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
           key={doc.id}
           navigation={navigation}
           sources={sources}
+          chantiers={chantiers}
           document={{
             id: doc.id,
             titre: doc.titre,
@@ -75,6 +78,13 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
             travail: doc.travail,
             erreur: doc.erreur,
             nomOriginal: doc.nomOriginal,
+            entreprise: doc.entreprise,
+            objet: doc.objet,
+            montantTTC: doc.montantTTC === null ? null : Number(doc.montantTTC),
+            montantHT: doc.montantHT === null ? null : Number(doc.montantHT),
+            dateDocument: doc.dateDocument ? doc.dateDocument.toISOString().slice(0, 10) : null,
+            copie: doc.copie,
+            operationId: doc.operationId,
             aVersionPublique: !!doc.cheminPublic,
           }}
           pages={doc.pages}
