@@ -16,7 +16,9 @@
     "import:ofgl": "tsx scripts/import-ofgl.ts",
     "import:annuaire": "tsx scripts/import-annuaire.ts",
     "import:all": "npm run import:geo && npm run import:ofgl && npm run import:annuaire",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "import:documents": "tsx scripts/import-documents.ts",
+    "worker": "tsx scripts/worker.ts"
   },
   "engines": {
     "node": ">=24"
@@ -25,9 +27,11 @@
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "next": "16.4.6",
+    "pdf-lib": "1.17.1",
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "sharp": "0.35.5",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -44,5 +48,8 @@
     "@prisma/engines@7.10.1": true,
     "esbuild@0.28.2": true,
     "prisma@7.10.1": true
+  },
+  "overrides": {
+    "effect": "3.22.5"
   }
 }

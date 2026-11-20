@@ -3,6 +3,10 @@
 FROM node:24-bookworm-slim AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Rendu PDF (poppler) et OCR (tesseract, français) pour l'occultation
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-fra \
+ && rm -rf /var/lib/apt/lists/*
 
 # ── Dépendances (+ génération du client Prisma) ──
 FROM base AS deps
@@ -12,9 +16,10 @@ COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
 RUN npm ci --no-audit --no-fund
 
-# ── Outils : migrations et imports open data ──
+# ── Outils : migrations, imports, worker de traitement des documents ──
 FROM deps AS tools
 COPY . .
+RUN mkdir -p /data/storage && chown -R node:node /data /app
 CMD ["sh"]
 
 # ── Build Next.js ──

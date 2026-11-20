@@ -183,6 +183,12 @@ model Document {
   message     Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
 
   notes       String?
+  // Lot d'import (nom du dossier ou de l'archive d'origine)
+  lot         String?
+  // Travail en attente pour le worker, et dernière erreur éventuelle
+  travail     TravailDocument?
+  erreur      String?
+  pages       PageDocument[]
   zones       ZoneOccultation[]
   indemnites  IndemniteFonction[]
   frais       FraisFonction[]
@@ -193,6 +199,26 @@ model Document {
   majLe       DateTime          @updatedAt
 
   @@index([communeCode, statut])
+  @@index([travail])
+  @@unique([communeCode, sha256Original])
+}
+
+enum TravailDocument {
+  ANALYSER  // rendu des pages + OCR + détection automatique des zones
+  GENERER   // application des zones validées + PDF public
+}
+
+// Aperçu d'une page (image non occultée, CHIFFRÉE) pour l'interface de validation.
+model PageDocument {
+  id         Int      @id @default(autoincrement())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  numero     Int // à partir de 1
+  largeur    Int // pixels de l'aperçu
+  hauteur    Int
+  cheminChiffre String
+
+  @@unique([documentId, numero])
 }
 
 enum CategorieDocument {
@@ -201,13 +227,18 @@ enum CategorieDocument {
   DELIBERATION
   INDEMNITES
   FRAIS
-  TRAVAUX
+  DEVIS
+  BON_DE_COMMANDE
+  FACTURE
   MARCHE
+  SUBVENTION
+  TRAVAUX
   AUTRE
 }
 
 enum StatutDocument {
   RECU            // original chiffré, pas encore analysé
+  EN_ANALYSE      // traitement en cours par le worker
   A_VERIFIER      // zones détectées automatiquement, en attente de validation
   OCCULTE         // occultation validée, version publique générée
   PUBLIE          // visible sur la plateforme

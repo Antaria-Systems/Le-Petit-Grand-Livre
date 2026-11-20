@@ -4,7 +4,7 @@
  *   STORAGE_DIR/publics/<id>.pdf    → version occultée, servie au public
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const MAGIC = Buffer.from("ODC1"); // format : MAGIC | IV (12) | TAG (16) | données chiffrées
@@ -67,4 +67,20 @@ export async function ecrirePublic(id: string, pdf: Buffer): Promise<string> {
 
 export async function lirePublic(relatif: string): Promise<Buffer> {
   return readFile(cheminStockage(relatif));
+}
+
+/** Écrit un fichier quelconque chiffré dans le stockage (aperçus de pages non occultées…). */
+export async function ecrireChiffre(relatif: string, clair: Buffer): Promise<string> {
+  const complet = cheminStockage(relatif);
+  await mkdir(path.dirname(complet), { recursive: true, mode: 0o700 });
+  await writeFile(complet, chiffrer(clair), { mode: 0o600 });
+  return relatif;
+}
+
+export async function lireChiffre(relatif: string): Promise<Buffer> {
+  return dechiffrer(await readFile(cheminStockage(relatif)));
+}
+
+export async function supprimerStockage(relatif: string): Promise<void> {
+  await rm(cheminStockage(relatif), { recursive: true, force: true });
 }

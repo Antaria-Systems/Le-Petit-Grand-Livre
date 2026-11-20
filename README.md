@@ -39,8 +39,25 @@ La base de données est sur un réseau Docker interne, sans accès à Internet.
 
 ## Documents et occultation
 
+```sh
+# 1. Importer un lot reçu d'une mairie (chiffré à l'entrée, dédoublonné, mis en file d'analyse)
+docker compose run --rm --user 0 -v "/chemin/du/lot:/import:ro" tools \
+  sh -c 'npx tsx scripts/import-documents.ts --commune 11199 --dossier /import --lot "Nom du lot" && chown -R node:node /data/storage'
+
+# 2. Le worker analyse (rendu, OCR 300 dpi, détection IBAN / BIC / RIB / téléphones / e-mails)
+docker compose logs -f worker
+
+# 3. Valider dans l'admin : /admin  (identifiants ADMIN_USER / ADMIN_PASSWORD du .env, temporaire)
+#    tracer les signatures et noms à masquer → « Générer la version occultée » → « Publier »
+```
+
+Règles appliquées :
+
+- Rien n'est publié automatiquement : chaque zone proposée doit être validée ou supprimée.
+- Modifier les zones d'un document publié le **dépublie** jusqu'à la nouvelle génération.
 - L'original reçu de la mairie est **chiffré** (AES-256-GCM, clé `ORIGINALS_KEY`) dans `storage/originaux/`
   et n'est jamais servi publiquement. **Sauvegardez la clé hors du serveur** : sans elle, les originaux sont perdus.
+- Les aperçus de pages (non occultés) de l'admin sont aussi chiffrés ; le worker travaille dans un `/tmp` en mémoire.
 - La version publique est rastérisée, les zones occultées sont noircies, puis le PDF est reconstruit :
   aucun texte ne subsiste sous les masques.
 - Les élus sont publiés **par fonction**, jamais par nom.
