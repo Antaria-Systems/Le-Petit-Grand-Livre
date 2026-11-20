@@ -64,9 +64,9 @@ export default async function TableauDeBord() {
                 ))}
               </ul>
             )}
-            {demandes.some((d) => d.statut === "BROUILLON") && (
+            {demandes.some((d) => d.statut === "BROUILLON" && !d.envoiProgrammeLe && !d.erreurEnvoi) && (
               <p className="petit">
-                {demandes.filter((d) => d.statut === "BROUILLON").length} brouillon(s) prêt(s) à relire —{" "}
+                {demandes.filter((d) => d.statut === "BROUILLON" && !d.envoiProgrammeLe && !d.erreurEnvoi).length} brouillon(s) prêt(s) à relire —{" "}
                 <Link href="/admin/demandes?statut=BROUILLON">voir</Link>
               </p>
             )}

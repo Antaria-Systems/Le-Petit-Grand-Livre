@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ajouterMessage,
+  annulerEnvoiProgramme,
   creerDemande,
   enregistrerChantier,
   enregistrerFrais,
@@ -20,6 +21,7 @@ import { site } from "@/lib/config";
 import { db } from "@/lib/db";
 import { LIBELLES_PIECES, PIECES, situationDemande } from "@/lib/demande";
 import { formatDateCourte, formatEntier, formatEuros } from "@/lib/format";
+import { formatDateHeure, versHeureParis } from "@/lib/heure";
 import { CATEGORIE_DOCUMENT, STATUT_DEMANDE, STATUT_DOCUMENT } from "@/lib/statuts";
 import { libelleStrate } from "@/lib/strates";
 
@@ -60,6 +62,15 @@ export default async function AdminCommune({ params, searchParams }: Props) {
     db.demande.findMany({ where: { communeCode: code }, orderBy: { annee: "desc" }, include: { messages: { orderBy: { date: "asc" } }, _count: { select: { documents: true } } } }),
   ]);
   const nomChantier = new Map(chantiers.map((c) => [c.id, c.intitule]));
+  // Proposition d'heure d'envoi : prochain jour ouvré à 9 h (heure de Paris)
+  const prochainEnvoi = (() => {
+    for (let j = 1; j <= 7; j++) {
+      const jourParis = versHeureParis(new Date(Date.now() + j * 86_400_000)).slice(0, 10);
+      const semaine = new Date(`${jourParis}T12:00:00Z`).getUTCDay();
+      if (semaine !== 0 && semaine !== 6) return `${jourParis}T09:00`;
+    }
+    return "";
+  })();
   const anneeCourante = new Date().getFullYear();
 
   return (
@@ -472,11 +483,27 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                     <dd>{d._count.documents}</dd>
                   </dl>
 
-                  {d.statut === "BROUILLON" && (
-                    <FormulaireAction action={envoyerDemande} className="encadre-envoi" confirmation={`Envoyer la demande à ${d.destinataire || "(aucun destinataire)"} ?`}>
+                  {d.statut === "BROUILLON" && d.envoiProgrammeLe && (
+                    <div className="encadre-envoi">
+                      <p>
+                        <strong>Envoi programmé le {formatDateHeure(d.envoiProgrammeLe)}</strong> (heure de Paris) à <code>{d.destinataire}</code>
+                        {d.envoiCopieCachee && site.asso.email ? `, copie cachée à ${site.asso.email}` : ""}.
+                      </p>
+                      <p className="petit discret">C&apos;est la version du courrier enregistrée au moment de l&apos;envoi qui partira.</p>
+                      <FormulaireAction action={annulerEnvoiProgramme} confirmation="Annuler l'envoi programmé ? La demande restera en brouillon.">
+                        <input type="hidden" name="id" value={d.id} />
+                        <button type="submit" className="bouton">
+                          Annuler la programmation
+                        </button>
+                      </FormulaireAction>
+                    </div>
+                  )}
+
+                  {d.statut === "BROUILLON" && !d.envoiProgrammeLe && (
+                    <FormulaireAction action={envoyerDemande} className="encadre-envoi" confirmation={`Envoyer (ou programmer) la demande à ${d.destinataire || "(aucun destinataire)"} ?`}>
                       <input type="hidden" name="id" value={d.id} />
                       <p>
-                        <strong>Envoyer par courriel</strong> à <code>{d.destinataire || "aucun destinataire : complétez-le ci-dessous"}</code>, depuis{" "}
+                        <strong>Envoi par courriel</strong> à <code>{d.destinataire || "aucun destinataire : complétez-le ci-dessous"}</code>, depuis{" "}
                         <code>{process.env.SMTP_FROM}</code>.
                       </p>
                       <label className="case">
@@ -484,12 +511,25 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                       </label>
                       {site.asso.email && (
                         <label className="case">
-                          <input type="checkbox" name="copie" value="oui" defaultChecked /> Copie cachée à {site.asso.email}
+                          <input type="checkbox" name="copie" value="oui" defaultChecked={d.envoiCopieCachee} /> Copie cachée à {site.asso.email}
                         </label>
                       )}
-                      <button type="submit" className="bouton bouton-principal" disabled={!d.destinataire}>
-                        Envoyer la demande
-                      </button>
+                      <div className="envoi-boutons">
+                        <button type="submit" name="mode" value="maintenant" className="bouton bouton-principal" disabled={!d.destinataire}>
+                          Envoyer maintenant
+                        </button>
+                        <span className="discret">ou</span>
+                        <label className="champ champ-en-ligne">
+                          <span className="sr-only">Date et heure d&apos;envoi (heure de Paris)</span>
+                          <input type="datetime-local" name="quand" defaultValue={prochainEnvoi} min={versHeureParis(new Date(Date.now() + 5 * 60_000))} />
+                        </label>
+                        <button type="submit" name="mode" value="programmer" className="bouton" disabled={!d.destinataire}>
+                          Programmer l&apos;envoi
+                        </button>
+                      </div>
+                      <p className="petit discret" style={{ margin: "6px 0 0" }}>
+                        Heure de Paris. Un envoi programmé peut être annulé jusqu&apos;au dernier moment.
+                      </p>
                     </FormulaireAction>
                   )}
 

@@ -316,6 +316,11 @@ model Demande {
   destinataire  String
   statut        StatutDemande @default(BROUILLON)
 
+  // Envoi programmé (le worker envoie le brouillon à cette date) et dernière erreur d'envoi
+  envoiProgrammeLe DateTime?
+  envoiCopieCachee Boolean   @default(true)
+  erreurEnvoi      String?
+
   envoyeeLe     DateTime?
   // Silence d'un mois = refus implicite (R.311-13)
   echeanceReponse DateTime?
@@ -338,6 +343,7 @@ model Demande {
 
   @@unique([communeCode, annee])
   @@index([statut])
+  @@index([envoiProgrammeLe])
 }
 
 enum StatutDemande {

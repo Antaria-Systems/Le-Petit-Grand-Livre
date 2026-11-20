@@ -589,7 +589,7 @@ a.carte:hover { border-color: var(--line-strong); color: inherit; }
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
-.nav-fiche ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.nav-fiche ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .nav-fiche a {
   display: block;
   padding: 13px 12px;
@@ -597,11 +597,9 @@ a.carte:hover { border-color: var(--line-strong); color: inherit; }
   text-decoration: none;
   white-space: nowrap;
   font-size: 0.95rem;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
 }
 .nav-fiche a:hover { color: var(--ink); }
-.nav-fiche a[aria-current="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.nav-fiche a[aria-current="true"] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 
 .bloc { padding: 64px 0 8px; scroll-margin-top: 110px; }
 .section-entete {
@@ -991,10 +989,22 @@ kbd { font: inherit; font-size: 0.8em; padding: 1px 5px; border: 1px solid var(-
 .admin-barre .admin-marque { font-weight: 700; text-decoration: none; }
 .titre-carte { font-size: 1.05rem; margin: 0 0 12px; }
 .titre-section-admin { font-size: 1.2rem; margin: 28px 0 12px; }
-.onglets { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 20px 0 24px; overflow-x: auto; }
-.onglets a { padding: 10px 14px; color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-.onglets a:hover { color: var(--ink); }
-.onglets a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+/* Onglets : le soulignement est tracé DANS l'onglet (ombre interne) ; un débordement d'un pixel
+   ferait apparaître une barre de défilement verticale dans le conteneur défilant. */
+.onglets {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin: 20px 0 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.onglets::-webkit-scrollbar,
+.nav-fiche ul::-webkit-scrollbar { display: none; }
+.onglets a { padding: 10px 14px; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.onglets a:hover { color: var(--ink); box-shadow: inset 0 -2px 0 var(--line-strong); }
+.onglets a[aria-current="page"] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 .admin-grille { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 @media (min-width: 960px) { .admin-grille { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
 .formulaire-champs { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -1037,3 +1047,6 @@ pre.texte-courrier { background: var(--surface-2); padding: 10px 12px; border-ra
 .fiche-presentation p { margin: 0 0 0.6em; }
 .demande-publique + .demande-publique { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
 .demande-publique .chronologie li { grid-template-columns: 96px 1fr; padding: 6px 0; }
+.envoi-boutons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; }
+.champ-en-ligne { margin: 0; }
+.champ-en-ligne input { padding: 8px 10px; }

@@ -4,6 +4,7 @@
  */
 import "dotenv/config";
 import { db } from "../src/lib/db";
+import { traiterEnvoisProgrammes } from "../src/lib/envoi-demande";
 import { importerDepartement } from "../src/lib/imports";
 import { analyser, generer } from "../src/lib/traitement/pipeline";
 
@@ -67,6 +68,8 @@ async function tour(): Promise<boolean> {
 async function main() {
   console.log("Worker démarré");
   while (!arret) {
+    // Les envois programmés passent en premier : leur heure compte.
+    await traiterEnvoisProgrammes().catch((e) => console.error("[envoi programmé]", e));
     const travaille = (await tour()) || (await tache());
     if (!travaille) await new Promise((r) => setTimeout(r, PAUSE_MS));
   }

@@ -1,5 +1,6 @@
 /** Demandes CRPA : courrier type, pièces demandées et calcul des délais. */
 import { site } from "./config";
+import { formatDateHeureCourte } from "./heure";
 
 export const PIECES = {
   budget: "le budget primitif et le compte administratif (ou compte financier unique) de l'exercice {annee}, avec leurs annexes ;",
@@ -66,10 +67,22 @@ export type Alerte = { niveau: "info" | "attention" | "urgent"; texte: string };
 
 /** Situation d'une demande à une date donnée (pour le tableau de bord). */
 export function situationDemande(
-  d: { statut: string; echeanceReponse: Date | null; limiteSaisineCada: Date | null; cadaSaisieLe: Date | null },
+  d: {
+    statut: string;
+    echeanceReponse: Date | null;
+    limiteSaisineCada: Date | null;
+    cadaSaisieLe: Date | null;
+    envoiProgrammeLe?: Date | null;
+    erreurEnvoi?: string | null;
+  },
   maintenant = new Date(),
 ): Alerte | null {
   const jours = (x: Date) => Math.ceil((x.getTime() - maintenant.getTime()) / 86_400_000);
+  if (d.statut === "BROUILLON") {
+    if (d.erreurEnvoi) return { niveau: "urgent", texte: d.erreurEnvoi };
+    if (d.envoiProgrammeLe) return { niveau: "info", texte: `Envoi programmé le ${formatDateHeureCourte(d.envoiProgrammeLe)}` };
+    return null;
+  }
   if ((d.statut === "ENVOYEE" || d.statut === "RELANCEE") && d.echeanceReponse) {
     const j = jours(d.echeanceReponse);
     if (j >= 0) return { niveau: j <= 7 ? "attention" : "info", texte: `Réponse attendue sous ${j} jour${j > 1 ? "s" : ""}` };

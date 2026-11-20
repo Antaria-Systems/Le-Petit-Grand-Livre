@@ -9,9 +9,9 @@ import { z } from "zod";
 import type { StatutDemande } from "@/generated/prisma/enums";
 import { adminCourant } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { ajouterMois, courrierDemande, delais, objetDemande, PIECES, type Piece } from "@/lib/demande";
-import { expediteur, transporteur } from "@/lib/mail";
-import { site } from "@/lib/config";
+import { courrierDemande, delais, objetDemande, PIECES, type Piece } from "@/lib/demande";
+import { envoyerDemandeMaintenant } from "@/lib/envoi-demande";
+import { depuisHeureParis, formatDateHeure } from "@/lib/heure";
 import { normaliser } from "@/lib/texte";
 
 export type Etat = { ok?: string; erreur?: string } | null;
@@ -282,6 +282,7 @@ export async function modifierDemande(_e: Etat, f: FormData): Promise<Etat> {
 }
 
 export async function supprimerDemande(_e: Etat, f: FormData): Promise<Etat> {
+  // (une demande programmée reste un brouillon : la supprimer annule aussi son envoi)
   await exigerAdmin();
   const id = z.string().min(1).parse(f.get("id"));
   const d = await db.demande.findUniqueOrThrow({ where: { id }, select: { statut: true } });
@@ -291,46 +292,44 @@ export async function supprimerDemande(_e: Etat, f: FormData): Promise<Etat> {
   return { ok: "Brouillon supprimé." };
 }
 
-/** Envoi réel par le relais SMTP — uniquement sur confirmation explicite. */
+/**
+ * Envoi de la demande par le relais SMTP, immédiatement ou à une date et heure choisies (heure de
+ * Paris) — dans les deux cas uniquement sur confirmation explicite.
+ */
 export async function envoyerDemande(_e: Etat, f: FormData): Promise<Etat> {
   try {
     await exigerAdmin();
-    if (f.get("confirmation") !== "oui") return { erreur: "Cochez la case de confirmation avant d'envoyer." };
+    if (f.get("confirmation") !== "oui") return { erreur: "Cochez la case de confirmation." };
     const id = z.string().min(1).parse(f.get("id"));
-    const d = await db.demande.findUniqueOrThrow({ where: { id } });
+    const copie = f.get("copie") === "oui";
+    const d = await db.demande.findUniqueOrThrow({ where: { id }, select: { statut: true, destinataire: true } });
     if (d.statut !== "BROUILLON") return { erreur: "Cette demande a déjà été envoyée." };
-    const destinataire = z.string().email("Adresse du destinataire invalide").parse(d.destinataire);
-    const copie = f.get("copie") === "oui" && site.asso.email ? site.asso.email : undefined;
-    const info = await transporteur().sendMail({
-      from: expediteur(),
-      to: destinataire,
-      bcc: copie,
-      replyTo: expediteur().address,
-      subject: d.objet,
-      text: d.corps,
-    });
-    const maintenant = new Date();
-    const { echeanceReponse, limiteSaisineCada } = delais(maintenant);
-    await db.$transaction([
-      db.demande.update({ where: { id }, data: { statut: "ENVOYEE", envoyeeLe: maintenant, echeanceReponse, limiteSaisineCada } }),
-      db.message.create({
-        data: {
-          demandeId: id,
-          sens: "SORTANT",
-          de: expediteur().address,
-          a: destinataire,
-          sujet: d.objet,
-          corps: d.corps,
-          date: maintenant,
-          messageIdEmail: info.messageId ?? null,
-        },
-      }),
-    ]);
+    if (!z.string().email().safeParse(d.destinataire).success) return { erreur: "Adresse du destinataire invalide : corrigez-la dans « Courrier, statut et dates »." };
+
+    if (f.get("mode") === "programmer") {
+      const quand = depuisHeureParis(String(f.get("quand") ?? ""));
+      if (!quand) return { erreur: "Indiquez la date et l'heure d'envoi." };
+      if (quand.getTime() < Date.now() + 60_000) return { erreur: "L'heure d'envoi doit être dans le futur." };
+      if (quand.getTime() > Date.now() + 366 * 86_400_000) return { erreur: "L'envoi ne peut pas être programmé à plus d'un an." };
+      await db.demande.update({ where: { id }, data: { envoiProgrammeLe: quand, envoiCopieCachee: copie, erreurEnvoi: null } });
+      refresh();
+      return { ok: `Envoi programmé le ${formatDateHeure(quand)} (heure de Paris).` };
+    }
+
+    const r = await envoyerDemandeMaintenant(id, copie);
     refresh();
-    return { ok: `Demande envoyée à ${destinataire}. Réponse attendue avant le ${ajouterMois(maintenant, 1).toLocaleDateString("fr-FR")}.` };
+    return { ok: `Demande envoyée à ${r.destinataire}. Réponse attendue avant le ${r.echeanceReponse!.toLocaleDateString("fr-FR")}.` };
   } catch (e) {
     return { erreur: `Envoi impossible : ${erreurDe(e)}` };
   }
+}
+
+export async function annulerEnvoiProgramme(_e: Etat, f: FormData): Promise<Etat> {
+  await exigerAdmin();
+  const id = z.string().min(1).parse(f.get("id"));
+  const r = await db.demande.updateMany({ where: { id, statut: "BROUILLON" }, data: { envoiProgrammeLe: null } });
+  refresh();
+  return r.count ? { ok: "Envoi programmé annulé : la demande reste en brouillon." } : { erreur: "La demande a déjà été envoyée." };
 }
 
 const schemaMessage = z.object({
