@@ -4,7 +4,7 @@ import { lireChiffre } from "@/lib/stockage";
 
 /** Aperçu NON occulté d'une page : réservé à l'administration, jamais mis en cache. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string; numero: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id, numero } = await params;
   const page = await db.pageDocument.findUnique({ where: { documentId_numero: { documentId: id, numero: Number(numero) } } });

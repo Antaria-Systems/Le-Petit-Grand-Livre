@@ -7,7 +7,7 @@ const schema = z.object({
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
   const donnees = schema.safeParse(await req.json());

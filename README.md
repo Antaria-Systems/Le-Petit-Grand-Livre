@@ -47,7 +47,7 @@ docker compose run --rm --user 0 -v "/chemin/du/lot:/import:ro" tools \
 # 2. Le worker analyse (rendu, OCR 300 dpi, détection IBAN / BIC / RIB / téléphones / e-mails)
 docker compose logs -f worker
 
-# 3. Valider dans l'admin : /admin  (identifiants ADMIN_USER / ADMIN_PASSWORD du .env, temporaire)
+# 3. Valider dans l'admin : /admin  (connexion Authentik, groupe AUTH_ADMIN_GROUP)
 #    tracer les signatures et noms à masquer → « Générer la version occultée » → « Publier »
 ```
 
@@ -61,6 +61,15 @@ Règles appliquées :
 - La version publique est rastérisée, les zones occultées sont noircies, puis le PDF est reconstruit :
   aucun texte ne subsiste sous les masques.
 - Les élus sont publiés **par fonction**, jamais par nom.
+
+## Administration et courriels
+
+- **Connexion** : Authentik (OIDC, PKCE), réservée au groupe `AUTH_ADMIN_GROUP` (claim `groups`).
+  Adresse de retour à déclarer : `https://<domaine>/api/auth/callback/authentik`.
+  Tant que `AUTH_AUTHENTIK_SECRET` est vide, un accès provisoire HTTP Basic (`ADMIN_USER` / `ADMIN_PASSWORD`) le remplace.
+- **Contrôle d'accès** vérifié deux fois (`src/proxy.ts` puis chaque route), requêtes d'écriture limitées au même site.
+- **SMTP** : relais Google Workspace (`smtp-relay.gmail.com:587`, STARTTLS), autorisé par l'IP du serveur.
+  Vérification sans envoi : `docker compose run --rm tools npx tsx scripts/verifier-smtp.ts`
 
 ## Structure
 

@@ -11,7 +11,7 @@ const schema = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
   const donnees = schema.safeParse(await req.json());
@@ -21,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
   const doc = await db.document.findUnique({ where: { id }, select: { statut: true, travail: true, erreur: true, cheminPublic: true } });

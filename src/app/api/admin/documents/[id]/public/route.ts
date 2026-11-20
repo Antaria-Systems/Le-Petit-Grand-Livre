@@ -4,7 +4,7 @@ import { lirePublic } from "@/lib/stockage";
 
 /** Prévisualisation de la version occultée, même avant publication. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
   const doc = await db.document.findUnique({ where: { id }, select: { cheminPublic: true } });

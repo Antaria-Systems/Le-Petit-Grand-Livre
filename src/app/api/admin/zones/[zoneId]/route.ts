@@ -7,7 +7,7 @@ import { invaliderVersionPublique } from "@/lib/admin-documents";
 const schema = schemaRect.partial().extend({ motif: z.enum(MOTIFS).optional(), validee: z.boolean().optional() });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ zoneId: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { zoneId } = await params;
   const donnees = schema.safeParse(await req.json());
@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ zoneId
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ zoneId: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { zoneId } = await params;
   const zone = await db.zoneOccultation.delete({ where: { id: zoneId } });

@@ -15,3 +15,13 @@ export function identifiantsValides(authorization: string | null): boolean {
   const okMdp = timingSafeEqual(hash(motDePasse), hash(attendu));
   return okUser && okMdp;
 }
+
+/** La connexion Authentik est active dès que son secret est renseigné ; sinon, accès provisoire Basic. */
+export function oidcActif(): boolean {
+  return Boolean(process.env.AUTH_AUTHENTIK_SECRET && process.env.AUTH_AUTHENTIK_ID && process.env.AUTH_AUTHENTIK_ISSUER && process.env.AUTH_SECRET);
+}
+
+export function groupesAutorises(groupes: string[] | undefined): boolean {
+  const requis = process.env.AUTH_ADMIN_GROUP;
+  return !requis || (Array.isArray(groupes) && groupes.includes(requis));
+}

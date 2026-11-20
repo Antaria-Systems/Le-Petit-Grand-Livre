@@ -7,7 +7,7 @@ import { MOTIFS, schemaRect } from "@/lib/admin-schemas";
 const schema = schemaRect.extend({ page: z.number().int().min(1), motif: z.enum(MOTIFS) });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const refus = refusAdmin(req);
+  const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
   const donnees = schema.safeParse(await req.json());
