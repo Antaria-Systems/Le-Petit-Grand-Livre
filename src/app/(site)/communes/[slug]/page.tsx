@@ -140,7 +140,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
               </p>
               <p className="petit">
                 <a href={`/communes/${commune.slug}/donnees.csv`}>Télécharger les données (CSV)</a> ·{" "}
-                <Link href="/methodologie#definitions">Définitions</Link>
+                <Link prefetch={false} href="/methodologie#definitions">Définitions</Link>
               </p>
             </div>
             {demandes.length > 0 && (

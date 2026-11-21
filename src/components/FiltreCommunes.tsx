@@ -53,7 +53,7 @@ export function FiltreCommunes({ communes }: { communes: C[] }) {
             <ul className="liste-communes">
               {liste.map((c) => (
                 <li key={c.slug}>
-                  <Link href={`/communes/${c.slug}`}>
+                  <Link prefetch={false} href={`/communes/${c.slug}`}>
                     <span>{c.nom}</span>
                     {c.population !== null && <span className="discret chiffres">{formatEntier(c.population)} hab.</span>}
                   </Link>

@@ -51,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, profile, account }) {
       if (profile) {
+        token.connecteLe = Date.now();
         token.groups = (await groupes(profile, account)) ?? [];
         token.name = (profile.name as string | undefined) ?? (profile.preferred_username as string | undefined) ?? token.name;
       }
@@ -58,6 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     session({ session, token }) {
       session.user.groups = (token.groups as string[] | undefined) ?? [];
+      session.user.connecteLe = (token.connecteLe as number | undefined) ?? 0;
       return session;
     },
   },

@@ -33,13 +33,13 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
           <nav className="fil-ariane" aria-label="Fil d'Ariane">
             <ol>
               <li>
-                <Link href="/">Accueil</Link>
+                <Link prefetch={false} href="/">Accueil</Link>
               </li>
               <li>
-                <Link href={`/regions/${region.code}`}>{region.nom}</Link>
+                <Link prefetch={false} href={`/regions/${region.code}`}>{region.nom}</Link>
               </li>
               <li>
-                <Link href={`/departements/${departement.code}`}>{departement.nom}</Link>
+                <Link prefetch={false} href={`/departements/${departement.code}`}>{departement.nom}</Link>
               </li>
               <li>
                 <span aria-current="page">{commune.nom}</span>
@@ -110,7 +110,7 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
                 })()}
               </svg>
               <figcaption className="discret petit">
-                Situation dans le département · <Link href={`/departements/${departement.code}`}>toutes les communes</Link>
+                Situation dans le département · <Link prefetch={false} href={`/departements/${departement.code}`}>toutes les communes</Link>
               </figcaption>
             </figure>
           )}

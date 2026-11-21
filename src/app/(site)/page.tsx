@@ -49,7 +49,7 @@ export default async function Accueil() {
             </div>
             {aLaUne[0] && (
               <p className="hero-exemple">
-                Par exemple&nbsp;: <Link href={`/communes/${aLaUne[0].slug}`}>{aLaUne[0].nom}</Link> ({aLaUne[0].departement.nom})
+                Par exemple&nbsp;: <Link prefetch={false} href={`/communes/${aLaUne[0].slug}`}>{aLaUne[0].nom}</Link> ({aLaUne[0].departement.nom})
               </p>
             )}
           </div>
@@ -84,7 +84,7 @@ export default async function Accueil() {
                 {departementsActifs.map((d, i) => (
                   <span key={d.code}>
                     {i > 0 && ", "}
-                    <Link href={`/departements/${d.code}`}>
+                    <Link prefetch={false} href={`/departements/${d.code}`}>
                       {d.nom} ({d.code})
                     </Link>
                   </span>
@@ -129,7 +129,7 @@ export default async function Accueil() {
                       {c.departement.nom} ({c.departement.code})
                     </p>
                     <h3>
-                      <Link href={`/communes/${c.slug}`} className="lien-etendu">
+                      <Link prefetch={false} href={`/communes/${c.slug}`} className="lien-etendu">
                         {c.nom}
                       </Link>
                     </h3>
@@ -160,7 +160,7 @@ export default async function Accueil() {
                 La plateforme démarre dans l&apos;Aude et s&apos;étend département par département.
               </p>
             </div>
-            <Link href="/regions" className="bouton bouton-secondaire">
+            <Link prefetch={false} href="/regions" className="bouton bouton-secondaire">
               Tous les territoires
             </Link>
           </div>
@@ -170,7 +170,7 @@ export default async function Accueil() {
               const communes = couverts.reduce((s, d) => s + d._count.communes, 0);
               return (
                 <li key={r.code}>
-                  <Link href={`/regions/${r.code}`} className={`tuile-territoire${couverts.length ? " couvert" : ""}`}>
+                  <Link prefetch={false} href={`/regions/${r.code}`} className={`tuile-territoire${couverts.length ? " couvert" : ""}`}>
                     <span className="tuile-territoire-nom">{r.nom}</span>
                     <span className="tuile-territoire-detail">
                       {r.departements.length} département{r.departements.length > 1 ? "s" : ""}
@@ -223,7 +223,7 @@ export default async function Accueil() {
             </li>
           </ol>
           <p className="section-suite">
-            <Link href="/methodologie" className="lien-fleche">
+            <Link prefetch={false} href="/methodologie" className="lien-fleche">
               Lire la méthodologie complète <IconeFleche taille={16} />
             </Link>
           </p>
@@ -250,7 +250,7 @@ export default async function Accueil() {
               Chaque fiche se télécharge en CSV. Les données sont publiées sous Licence Ouverte 2.0 et le code de la plateforme sous
               licence AGPL&nbsp;: réutilisez-les librement, en citant la source.
             </p>
-            <Link className="bouton bouton-secondaire" href="/methodologie#sources">
+            <Link prefetch={false} className="bouton bouton-secondaire" href="/methodologie#sources">
               Voir les sources
             </Link>
           </div>

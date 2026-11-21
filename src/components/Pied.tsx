@@ -21,10 +21,10 @@ export function Pied() {
               <h2>Explorer</h2>
               <ul>
                 <li>
-                  <Link href="/regions">Tous les territoires</Link>
+                  <Link prefetch={false} href="/regions">Tous les territoires</Link>
                 </li>
                 <li>
-                  <Link href="/#recherche">Rechercher une commune</Link>
+                  <Link prefetch={false} href="/#recherche">Rechercher une commune</Link>
                 </li>
               </ul>
             </div>
@@ -32,13 +32,13 @@ export function Pied() {
               <h2>Comprendre</h2>
               <ul>
                 <li>
-                  <Link href="/methodologie">Méthodologie et sources</Link>
+                  <Link prefetch={false} href="/methodologie">Méthodologie et sources</Link>
                 </li>
                 <li>
-                  <Link href="/methodologie#definitions">Définitions des indicateurs</Link>
+                  <Link prefetch={false} href="/methodologie#definitions">Définitions des indicateurs</Link>
                 </li>
                 <li>
-                  <Link href="/methodologie#cadre-juridique">Cadre juridique (CRPA)</Link>
+                  <Link prefetch={false} href="/methodologie#cadre-juridique">Cadre juridique (CRPA)</Link>
                 </li>
               </ul>
             </div>
@@ -46,13 +46,13 @@ export function Pied() {
               <h2>L&apos;association</h2>
               <ul>
                 <li>
-                  <Link href="/a-propos">Qui sommes-nous</Link>
+                  <Link prefetch={false} href="/a-propos">Qui sommes-nous</Link>
                 </li>
                 <li>
-                  <Link href="/a-propos#contact">Nous écrire</Link>
+                  <Link prefetch={false} href="/a-propos#contact">Nous écrire</Link>
                 </li>
                 <li>
-                  <Link href="/methodologie#erreurs">Signaler une erreur</Link>
+                  <Link prefetch={false} href="/methodologie#erreurs">Signaler une erreur</Link>
                 </li>
               </ul>
             </div>
@@ -62,7 +62,7 @@ export function Pied() {
                 <li>Code sous licence AGPL-3.0</li>
                 <li>Données sous Licence Ouverte 2.0</li>
                 <li>
-                  <Link href="/mentions-legales#donnees-personnelles">Vos données personnelles</Link>
+                  <Link prefetch={false} href="/mentions-legales#donnees-personnelles">Vos données personnelles</Link>
                 </li>
               </ul>
             </div>
@@ -72,7 +72,7 @@ export function Pied() {
 
       <div className="conteneur">
         <div className="pied-corps">
-          <Link href="/" className="marque marque-pied" title={`${site.nom}, retour à l'accueil`}>
+          <Link prefetch={false} href="/" className="marque marque-pied" title={`${site.nom}, retour à l'accueil`}>
             <LogoRegistre taille={52} />
             <span className="marque-nom">
               {mots.slice(0, moitie).join(" ")}
@@ -101,16 +101,16 @@ export function Pied() {
         <div className="pied-bas">
           <ul>
             <li>
-              <Link href="/mentions-legales">Mentions légales</Link>
+              <Link prefetch={false} href="/mentions-legales">Mentions légales</Link>
             </li>
             <li>
-              <Link href="/mentions-legales#donnees-personnelles">Données personnelles</Link>
+              <Link prefetch={false} href="/mentions-legales#donnees-personnelles">Données personnelles</Link>
             </li>
             <li>
-              <Link href="/methodologie">Méthodologie</Link>
+              <Link prefetch={false} href="/methodologie">Méthodologie</Link>
             </li>
             <li>
-              <Link href="/a-propos">À propos</Link>
+              <Link prefetch={false} href="/a-propos">À propos</Link>
             </li>
           </ul>
           <p>

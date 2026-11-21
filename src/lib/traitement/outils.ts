@@ -11,9 +11,22 @@ export const DPI = 200;
 /** Résolution de l'OCR de détection : à 200 dpi, des petits textes (en-têtes en italique) sont manqués. */
 export const DPI_OCR = 300;
 
-export async function executer(cmd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec(cmd, args, { maxBuffer: 64 * 1024 * 1024 });
-  return stdout;
+/** Délai maximal par défaut d'un outil externe (une page) : au-delà, il est tué. */
+export const DELAI_OUTIL_MS = 180_000;
+
+/**
+ * Lance un outil externe (pdftoppm, tesseract…) avec un délai maximal : un fichier piégé ou
+ * illisible ne doit jamais bloquer le worker indéfiniment.
+ */
+export async function executer(cmd: string, args: string[], delaiMs = DELAI_OUTIL_MS): Promise<string> {
+  try {
+    const { stdout } = await exec(cmd, args, { maxBuffer: 64 * 1024 * 1024, timeout: delaiMs, killSignal: "SIGKILL" });
+    return stdout;
+  } catch (e) {
+    const err = e as { killed?: boolean; signal?: string; stderr?: string; message?: string };
+    if (err.killed || err.signal === "SIGKILL") throw new Error(`${cmd} : délai de ${Math.round(delaiMs / 1000)} s dépassé, traitement interrompu`);
+    throw new Error(`${cmd} : ${(err.stderr || err.message || String(e)).slice(0, 300)}`);
+  }
 }
 
 /** Dossier temporaire privé, supprimé quoi qu'il arrive après usage. */

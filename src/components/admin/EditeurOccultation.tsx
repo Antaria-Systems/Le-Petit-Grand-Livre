@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CategorieDocument, MotifOccultation, StatutDocument, TravailDocument } from "@/generated/prisma/enums";
 import { CATEGORIES, MOTIFS } from "@/lib/admin-schemas";
+import { lireMontant } from "@/lib/montant";
 import { CATEGORIE_DOCUMENT, MOTIF_OCCULTATION, STATUT_DOCUMENT } from "@/lib/statuts";
 
 type Zone = {
@@ -57,8 +58,22 @@ type Navigation = { precedentId: string | null; suivantId: string | null; positi
 type Source = { id: string; titre: string; nbZones: number };
 type Manipulation = { id: string; mode: "deplacer" | "nw" | "ne" | "sw" | "se"; x0: number; y0: number; origine: Zone; cadre: DOMRect; bouge: boolean };
 
-/** Ordre de lecture des zones : page, puis de haut en bas, puis de gauche à droite. */
-const ordre = (a: Zone, b: Zone) => a.page - b.page || a.y - b.y || a.x - b.x;
+/**
+ * Ordre de lecture des zones : page, puis par ligne (tolérance de 1 % de la hauteur, pour qu'un
+ * téléphone et un courriel sur la même ligne se suivent de gauche à droite), puis de gauche à droite.
+ */
+const ordre = (a: Zone, b: Zone) => a.page - b.page || Math.round(a.y * 100) - Math.round(b.y * 100) || a.x - b.x;
+
+/** Position lisible d'une zone : « en haut à droite », pour savoir laquelle on supprime. */
+function positionZone(z: Pick<Zone, "x" | "y" | "largeur" | "hauteur">): string {
+  const cy = z.y + z.hauteur / 2;
+  const cx = z.x + z.largeur / 2;
+  const v = cy < 0.33 ? "en haut" : cy < 0.66 ? "au milieu" : "en bas";
+  const h = cx < 0.33 ? "à gauche" : cx < 0.66 ? "au centre" : "à droite";
+  return `${v} ${h}`;
+}
+
+const CLE_DERNIER_TERMINE = "lpgl-dernier-termine";
 
 /** Prochaine zone à vérifier après (ou avant) une zone donnée, en bouclant. */
 function prochaineAVerifier(apres: Zone | null, liste: Zone[], sens: 1 | -1 = 1): Zone | null {
@@ -100,7 +115,7 @@ export function EditeurOccultation({
   const [trace, setTrace] = useState<Trace | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "erreur"; texte: string } | null>(null);
   const [occupe, setOccupe] = useState(false);
-  const [meta, setMeta] = useState({
+  const metaInitiale = {
     titre: initial.titre,
     categorie: initial.categorie,
     annee: initial.annee?.toString() ?? "",
@@ -112,7 +127,12 @@ export function EditeurOccultation({
     dateDocument: initial.dateDocument ?? "",
     copie: initial.copie,
     operationId: initial.operationId?.toString() ?? "",
-  });
+  };
+  const [meta, setMeta] = useState(metaInitiale);
+  const [metaEnregistree, setMetaEnregistree] = useState(() => JSON.stringify(metaInitiale));
+  const metaModifiee = JSON.stringify(meta) !== metaEnregistree;
+  const [derniereSupprimee, setDerniereSupprimee] = useState<Zone | null>(null);
+  const [alertePrecedent, setAlertePrecedent] = useState<{ id: string; titre: string; erreur: string } | null>(null);
 
   /* ─────────── Zoom de la visionneuse (indépendant du zoom du navigateur) ─────────── */
   const ZOOM_MIN = 0.5;
@@ -245,6 +265,55 @@ export function EditeurOccultation({
 
   useEffect(() => setZones(zonesInitiales), [zonesInitiales]);
 
+  /* ─────────── Document terminé juste avant : bloqué par le contrôle avant publication ? ─────────── */
+  useEffect(() => {
+    let id: string | null = null;
+    try {
+      id = sessionStorage.getItem(CLE_DERNIER_TERMINE);
+    } catch {
+      return;
+    }
+    if (!id || id === doc.id) return;
+    const surveille = id;
+    const debutSuivi = Date.now();
+    const t = setInterval(async () => {
+      const etat = await appel(`/api/admin/documents/${surveille}`, "GET").catch(() => null);
+      if (!etat) return;
+      if (etat.travail && Date.now() - debutSuivi < 15 * 60_000) return; // génération encore en cours
+      clearInterval(t);
+      try {
+        sessionStorage.removeItem(CLE_DERNIER_TERMINE);
+      } catch {
+        /* rien */
+      }
+      if (etat.statut !== "PUBLIE") {
+        setAlertePrecedent({ id: surveille, titre: etat.titre ?? "document", erreur: etat.erreur ?? `statut « ${STATUT_DOCUMENT[etat.statut as StatutDocument]?.libelle ?? etat.statut} »` });
+      }
+    }, 4000);
+    return () => clearInterval(t);
+  }, [doc.id]);
+
+  /* ─────────── Modifications non enregistrées : avertissement en quittant la page ─────────── */
+  useEffect(() => {
+    if (!metaModifiee) return;
+    const avertir = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [metaModifiee]);
+
+  /* ─────────── Hauteur de la visionneuse : tout l'espace sous sa position réelle ─────────── */
+  useLayoutEffect(() => {
+    const v = visionneuse.current;
+    if (!v) return;
+    const ajuster = () => {
+      const haut = v.getBoundingClientRect().top + window.scrollY;
+      v.style.height = `max(420px, calc(100dvh - ${Math.round(Math.min(haut, 480))}px - 16px))`;
+    };
+    ajuster();
+    window.addEventListener("resize", ajuster);
+    return () => window.removeEventListener("resize", ajuster);
+  }, [pages.length]);
+
   /* ─────────── Zones ─────────── */
   const modifierZone = useCallback(async (id: string, patch: Partial<Zone>) => {
     setZones((zs) => zs.map((z) => (z.id === id ? { ...z, ...patch } : z)));
@@ -257,6 +326,8 @@ export function EditeurOccultation({
   }, []);
 
   const supprimerZone = useCallback(async (id: string) => {
+    const zone = zonesRef.current.find((z) => z.id === id);
+    if (zone) setDerniereSupprimee(zone);
     setZones((zs) => zs.filter((z) => z.id !== id));
     setSelection(null);
     try {
@@ -298,6 +369,7 @@ export function EditeurOccultation({
   );
 
   const terminerRef = useRef<() => void>(() => {});
+  const restaurerRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     function clavier(e: KeyboardEvent) {
@@ -306,6 +378,12 @@ export function EditeurOccultation({
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         terminerRef.current();
+        return;
+      }
+      // Ctrl + Z : rétablir la dernière zone supprimée
+      if (e.key.toLowerCase() === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        restaurerRef.current();
         return;
       }
       // Tab / Maj + Tab : parcourir les zones à vérifier (seulement depuis la page ou une zone)
@@ -320,7 +398,8 @@ export function EditeurOccultation({
         return;
       }
       if (!selection) return;
-      if (e.key === "Delete" || e.key === "Backspace") {
+      // Suppr uniquement : Retour arrière, trop facile à frapper par erreur, ne supprime rien.
+      if (e.key === "Delete") {
         e.preventDefault();
         supprimerEtSuivre(selection);
       } else if (e.key === "Enter") {
@@ -437,8 +516,17 @@ export function EditeurOccultation({
     const restantes = zonesRef.current.filter((z) => !z.validee).length;
     if (restantes > 0 && !window.confirm(`${restantes} zone(s) proposée(s) n'ont pas été vérifiées une par une. Les valider toutes et publier ?`)) return;
     setOccupe(true);
+    if (metaModifiee && !(await sauverMeta())) {
+      setOccupe(false);
+      return;
+    }
     try {
       await appel(`/api/admin/documents/${doc.id}/action`, "POST", { action: "terminer" });
+      try {
+        sessionStorage.setItem(CLE_DERNIER_TERMINE, doc.id);
+      } catch {
+        /* stockage indisponible : pas de suivi du document précédent */
+      }
       router.push(navigation.suivantId ? `/admin/documents/${navigation.suivantId}` : "/admin/documents?statut=A_VERIFIER");
     } catch (e) {
       signaler("erreur", (e as Error).message);
@@ -446,6 +534,29 @@ export function EditeurOccultation({
     }
   }
   terminerRef.current = terminer;
+
+  /** Rétablit la dernière zone supprimée (même emplacement, même motif, validée). */
+  async function restaurer() {
+    const z = derniereSupprimee;
+    if (!z) return;
+    setDerniereSupprimee(null);
+    try {
+      const zone = (await appel(`/api/admin/documents/${doc.id}/zones`, "POST", { page: z.page, x: z.x, y: z.y, largeur: z.largeur, hauteur: z.hauteur, motif: z.motif })) as Zone;
+      setZones((zs) => [...zs, zone]);
+      selectionner(zone.id);
+      marquerModifie();
+      signaler("ok", "Zone rétablie.");
+    } catch (e) {
+      signaler("erreur", (e as Error).message);
+    }
+  }
+  restaurerRef.current = restaurer;
+
+  /** Navigation vers un autre document : les informations modifiées sont d'abord enregistrées. */
+  async function naviguer(url: string) {
+    if (metaModifiee && !(await sauverMeta())) return;
+    router.push(url);
+  }
 
   async function copierZones() {
     if (!source) return;
@@ -460,10 +571,17 @@ export function EditeurOccultation({
     }
   }
 
-  async function enregistrerMeta(e: React.FormEvent) {
-    e.preventDefault();
+  /** Enregistre les informations ; renvoie false (et affiche l'erreur) si la saisie est invalide. */
+  async function sauverMeta(): Promise<boolean> {
+    const montants = { montantTTC: meta.montantTTC.trim(), montantHT: meta.montantHT.trim() };
+    const lus = { montantTTC: montants.montantTTC ? lireMontant(montants.montantTTC) : null, montantHT: montants.montantHT ? lireMontant(montants.montantHT) : null };
+    for (const [champ, valeur] of Object.entries(lus)) {
+      if (valeur !== null && !Number.isFinite(valeur)) {
+        signaler("erreur", `${champ === "montantTTC" ? "Montant TTC" : "Montant HT"} illisible (« ${montants[champ as keyof typeof montants]} ») : saisissez par exemple 1 234,56. Rien n'a été enregistré.`);
+        return false;
+      }
+    }
     try {
-      const montant = (v: string) => (v.trim() ? Number(v.replace(/\s/g, "").replace(",", ".")) : null);
       await appel(`/api/admin/documents/${doc.id}`, "PATCH", {
         titre: meta.titre,
         categorie: meta.categorie,
@@ -471,16 +589,24 @@ export function EditeurOccultation({
         notes: meta.notes || null,
         entreprise: meta.entreprise || null,
         objet: meta.objet || null,
-        montantTTC: montant(meta.montantTTC),
-        montantHT: montant(meta.montantHT),
+        montantTTC: lus.montantTTC,
+        montantHT: lus.montantHT,
         dateDocument: meta.dateDocument || null,
         copie: meta.copie,
         operationId: meta.operationId ? Number(meta.operationId) : null,
       });
+      setMetaEnregistree(JSON.stringify(meta));
       signaler("ok", "Informations enregistrées.");
+      return true;
     } catch (err) {
-      signaler("erreur", (err as Error).message);
+      signaler("erreur", `Informations non enregistrées : ${(err as Error).message}`);
+      return false;
     }
+  }
+
+  async function enregistrerMeta(e: React.FormEvent) {
+    e.preventDefault();
+    await sauverMeta();
   }
 
   const statut = STATUT_DOCUMENT[doc.statut];
@@ -490,7 +616,20 @@ export function EditeurOccultation({
     <div className="editeur">
       <div className="editeur-pages">
         <nav className="nav-verification" aria-label="Documents à vérifier">
-          {navigation.precedentId ? <Link href={`/admin/documents/${navigation.precedentId}`}>← Précédent</Link> : <span />}
+          {navigation.precedentId ? (
+            <Link
+              href={`/admin/documents/${navigation.precedentId}`}
+              onClick={(e) => {
+                if (!metaModifiee) return;
+                e.preventDefault();
+                naviguer(`/admin/documents/${navigation.precedentId}`);
+              }}
+            >
+              ← Précédent
+            </Link>
+          ) : (
+            <span />
+          )}
           <span className="discret petit">
             {navigation.total === 0
               ? "Aucun autre document à vérifier"
@@ -498,7 +637,20 @@ export function EditeurOccultation({
                 ? `Document ${navigation.position} sur ${navigation.total} à vérifier`
                 : `${navigation.total} document${navigation.total > 1 ? "s" : ""} à vérifier`}
           </span>
-          {navigation.suivantId ? <Link href={`/admin/documents/${navigation.suivantId}`}>Suivant →</Link> : <span />}
+          {navigation.suivantId ? (
+            <Link
+              href={`/admin/documents/${navigation.suivantId}`}
+              onClick={(e) => {
+                if (!metaModifiee) return;
+                e.preventDefault();
+                naviguer(`/admin/documents/${navigation.suivantId}`);
+              }}
+            >
+              Suivant →
+            </Link>
+          ) : (
+            <span />
+          )}
         </nav>
         <h1 style={{ fontSize: "1.5rem" }}>{doc.titre}</h1>
         <p className="discret petit">Fichier d&apos;origine : {doc.nomOriginal}</p>
@@ -559,8 +711,8 @@ export function EditeurOccultation({
                       }}
                       className={`zone ${z.validee ? "zone-validee" : "zone-proposee"} ${transparence ? "zone-transparente" : ""} ${selection === z.id ? "zone-selection" : ""}`}
                       style={{ left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.largeur * 100}%`, height: `${z.hauteur * 100}%` }}
-                      title={`${MOTIF_OCCULTATION[z.motif]}${z.validee ? "" : " (proposée)"}`}
-                      aria-label={`Zone ${MOTIF_OCCULTATION[z.motif]}, ${z.validee ? "validée" : "à vérifier"}`}
+                      title={`${MOTIF_OCCULTATION[z.motif]}, ${positionZone(z)}${z.validee ? "" : " (proposée)"}`}
+                      aria-label={`Zone ${MOTIF_OCCULTATION[z.motif]}, page ${z.page} ${positionZone(z)}, ${z.validee ? "validée" : "à vérifier"}`}
                       onPointerDown={(e) => debutManipulation(e, z, "deplacer")}
                       onPointerMove={mouvementManipulation}
                       onPointerUp={finManipulation}
@@ -598,7 +750,24 @@ export function EditeurOccultation({
             <span className={`badge ${statut.classe}`}>{statut.libelle}</span>
             {enCours && <span className="discret petit"> · {doc.travail === "ANALYSER" ? "analyse" : "génération"} en cours…</span>}
           </p>
+          {alertePrecedent && (
+            <p className="alerte alerte-urgent" role="alert">
+              Le document précédent, <Link href={`/admin/documents/${alertePrecedent.id}`}>{alertePrecedent.titre}</Link>, n&apos;a pas été publié :{" "}
+              {alertePrecedent.erreur}
+            </p>
+          )}
+          {doc.travail === "GENERER" && (
+            <p className="alerte alerte-info">Génération en cours : toute modification des zones annulera la publication automatique (il faudra « Terminer » à nouveau).</p>
+          )}
           {doc.erreur && <p className="badge badge-alerte" style={{ whiteSpace: "normal" }}>{doc.erreur}</p>}
+          {derniereSupprimee && (
+            <p className="petit">
+              Zone supprimée ({MOTIF_OCCULTATION[derniereSupprimee.motif]}, page {derniereSupprimee.page} {positionZone(derniereSupprimee)}).{" "}
+              <button type="button" className="lien-bouton" onClick={restaurer}>
+                Rétablir
+              </button>
+            </p>
+          )}
           <p className="petit" style={{ margin: "0 0 12px" }}>
             {zones.length} zone{zones.length > 1 ? "s" : ""} · <strong>{aVerifier}</strong> à vérifier
           </p>
@@ -634,7 +803,8 @@ export function EditeurOccultation({
               <kbd>Tab</kbd> / <kbd>Maj</kbd>+<kbd>Tab</kbd> zone à vérifier suivante / précédente
             </li>
             <li>
-              <kbd>Entrée</kbd> valider · <kbd>Suppr</kbd> supprimer (puis zone suivante)
+              <kbd>Entrée</kbd> valider · <kbd>Suppr</kbd> supprimer (puis zone suivante) · <kbd>Ctrl</kbd>+<kbd>Z</kbd> rétablir la dernière zone
+              supprimée
             </li>
           </ul>
 
@@ -660,7 +830,7 @@ export function EditeurOccultation({
           {zoneSel && (
             <div className="zone-panneau">
               <strong className="petit">
-                Zone page {zoneSel.page} · {zoneSel.source === "AUTO" ? "détectée" : "manuelle"}
+                Zone page {zoneSel.page}, {positionZone(zoneSel)} · {zoneSel.source === "AUTO" ? "détectée" : "manuelle"}
               </strong>
               <select value={zoneSel.motif} onChange={(e) => modifierZone(zoneSel.id, { motif: e.target.value as MotifOccultation })}>
                 {MOTIFS.map((m) => (
@@ -791,9 +961,16 @@ export function EditeurOccultation({
             <span>Notes internes</span>
             <textarea rows={3} value={meta.notes} onChange={(e) => setMeta({ ...meta, notes: e.target.value })} />
           </label>
-          <button type="submit" className="bouton">
-            Enregistrer
-          </button>
+          <div className="boutons">
+            <button type="submit" className={`bouton${metaModifiee ? " bouton-principal" : ""}`}>
+              Enregistrer
+            </button>
+            {metaModifiee && (
+              <span className="petit discret" role="status">
+                Modifications non enregistrées (enregistrées automatiquement en changeant de document)
+              </span>
+            )}
+          </div>
         </form>
       </aside>
     </div>

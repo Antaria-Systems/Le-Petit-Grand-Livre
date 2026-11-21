@@ -44,7 +44,7 @@ export default async function PageRegion({ params }: Props) {
           <ul className="tuiles-territoires">
             {region.departements.map((d) => (
               <li key={d.code}>
-                <Link href={`/departements/${d.code}`} className={`tuile-territoire${d.actif ? " couvert" : ""}`}>
+                <Link prefetch={false} href={`/departements/${d.code}`} className={`tuile-territoire${d.actif ? " couvert" : ""}`}>
                   <span className="tuile-territoire-code chiffres">{d.code}</span>
                   <span className="tuile-territoire-nom">{d.nom}</span>
                   {d.actif ? (

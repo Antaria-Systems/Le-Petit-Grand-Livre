@@ -8,10 +8,10 @@ export function FilAriane({ elements }: { elements: Etape[] }) {
     <nav className="fil-ariane" aria-label="Vous êtes ici">
       <ol>
         <li>
-          <Link href="/">Accueil</Link>
+          <Link prefetch={false} href="/">Accueil</Link>
         </li>
         {elements.map((e) => (
-          <li key={e.libelle}>{e.href ? <Link href={e.href}>{e.libelle}</Link> : <span aria-current="page">{e.libelle}</span>}</li>
+          <li key={e.libelle}>{e.href ? <Link prefetch={false} href={e.href}>{e.libelle}</Link> : <span aria-current="page">{e.libelle}</span>}</li>
         ))}
       </ol>
     </nav>

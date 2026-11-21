@@ -4,8 +4,10 @@ import { TableCommunes, type LigneCommune } from "@/components/admin/TableCommun
 import { statsCommunes } from "@/lib/admin-stats";
 import { db } from "@/lib/db";
 import type { STATUT_DEMANDE } from "@/lib/statuts";
+import { verifierAdminPage } from "@/lib/admin";
 
 export default async function AdminDepartement({ params }: { params: Promise<{ code: string }> }) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { code } = await params;
   const dep = await db.departement.findUnique({
     where: { code },

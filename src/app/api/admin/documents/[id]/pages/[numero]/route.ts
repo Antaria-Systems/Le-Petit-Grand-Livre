@@ -6,8 +6,10 @@ import { lireChiffre } from "@/lib/stockage";
 export async function GET(req: Request, { params }: { params: Promise<{ id: string; numero: string }> }) {
   const refus = await refusAdmin(req);
   if (refus) return refus;
-  const { id, numero } = await params;
-  const page = await db.pageDocument.findUnique({ where: { documentId_numero: { documentId: id, numero: Number(numero) } } });
+  const { id, numero: brut } = await params;
+  const numero = Number(brut);
+  if (!Number.isInteger(numero) || numero < 1) return new Response("Page introuvable", { status: 404 });
+  const page = await db.pageDocument.findUnique({ where: { documentId_numero: { documentId: id, numero } } });
   if (!page) return new Response("Page introuvable", { status: 404 });
   const image = await lireChiffre(page.cheminChiffre);
   return new Response(new Uint8Array(image), {

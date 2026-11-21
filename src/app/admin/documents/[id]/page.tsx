@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EditeurOccultation } from "@/components/admin/EditeurOccultation";
 import { db } from "@/lib/db";
+import { verifierAdminPage } from "@/lib/admin";
 
 export default async function AdminDocument({ params }: { params: Promise<{ id: string }> }) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { id } = await params;
   const doc = await db.document.findUnique({
     where: { id },
@@ -15,10 +17,16 @@ export default async function AdminDocument({ params }: { params: Promise<{ id: 
   });
   if (!doc) notFound();
 
-  // File de vérification : même ordre que la liste de l'admin (catégorie, puis titre).
+  // File de vérification : documents à vérifier ET documents bloqués par le contrôle avant
+  // publication (une coordonnée reste lisible), dans l'ordre de la liste de l'admin.
   const file = await db.document.findMany({
-    where: { statut: "A_VERIFIER", OR: [{ travail: null }, { id }] },
-    orderBy: [{ categorie: "asc" }, { titre: "asc" }],
+    where: {
+      AND: [
+        { OR: [{ statut: "A_VERIFIER" }, { statut: "OCCULTE", erreur: { not: null } }] },
+        { OR: [{ travail: null }, { id }] },
+      ],
+    },
+    orderBy: [{ recuLe: "desc" }, { titre: "asc" }],
     select: { id: true },
   });
   const ids = file.map((d) => d.id);

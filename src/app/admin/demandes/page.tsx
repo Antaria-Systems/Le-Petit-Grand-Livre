@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { situationDemande } from "@/lib/demande";
+import { situationDemande, statutAffiche } from "@/lib/demande";
+import { formatJourParis } from "@/lib/demande";
 import { formatDateCourte } from "@/lib/format";
 import { STATUT_DEMANDE } from "@/lib/statuts";
+import { verifierAdminPage } from "@/lib/admin";
 
 type Props = { searchParams: Promise<{ statut?: string }> };
 
 export default async function AdminDemandes({ searchParams }: Props) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { statut } = await searchParams;
   const filtre = statut && statut in STATUT_DEMANDE ? (statut as keyof typeof STATUT_DEMANDE) : undefined;
   const [demandes, compteurs] = await Promise.all([
@@ -58,19 +61,20 @@ export default async function AdminDemandes({ searchParams }: Props) {
               <tbody>
                 {demandes.map((d) => {
                   const a = situationDemande(d);
+                  const st = statutAffiche(d) ?? STATUT_DEMANDE[d.statut];
                   return (
                     <tr key={d.id}>
                       <td>
-                        <Link href={`/admin/communes/${d.commune.code}?onglet=demandes`}>{d.commune.nom}</Link>{" "}
+                        <Link href={`/admin/communes/${d.commune.code}?onglet=demandes#demande-${d.id}`}>{d.commune.nom}</Link>{" "}
                         <span className="discret petit">({d.commune.departementCode})</span>
                       </td>
                       <td className="chiffres">{d.annee}</td>
                       <td>
-                        <span className={`badge ${STATUT_DEMANDE[d.statut].classe}`}>{STATUT_DEMANDE[d.statut].libelle}</span>
+                        <span className={`badge ${st.classe}`}>{st.libelle}</span>
                       </td>
                       <td className="chiffres">{d.envoyeeLe ? formatDateCourte(d.envoyeeLe) : "—"}</td>
-                      <td className="chiffres">{d.echeanceReponse ? formatDateCourte(d.echeanceReponse) : "—"}</td>
-                      <td className="chiffres">{d.limiteSaisineCada ? formatDateCourte(d.limiteSaisineCada) : "—"}</td>
+                      <td className="chiffres">{d.echeanceReponse ? formatJourParis(d.echeanceReponse) : "—"}</td>
+                      <td className="chiffres">{d.limiteSaisineCada ? formatJourParis(d.limiteSaisineCada) : "—"}</td>
                       <td className="nombre">{d._count.documents || "—"}</td>
                       <td className="petit">{a ? <span className={`alerte alerte-${a.niveau}`}>{a.texte}</span> : d.statut === "BROUILLON" ? "Relire et envoyer" : "—"}</td>
                     </tr>

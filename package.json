@@ -18,7 +18,8 @@
     "import:all": "npm run import:geo && npm run import:ofgl && npm run import:annuaire",
     "postinstall": "prisma generate",
     "import:documents": "tsx scripts/import-documents.ts",
-    "worker": "tsx scripts/worker.ts"
+    "worker": "tsx scripts/worker.ts",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "engines": {
     "node": ">=24"

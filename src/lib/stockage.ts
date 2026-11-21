@@ -57,8 +57,8 @@ export async function lireOriginal(relatif: string): Promise<Buffer> {
   return dechiffrer(await readFile(cheminStockage(relatif)));
 }
 
-export async function ecrirePublic(id: string, pdf: Buffer): Promise<string> {
-  const relatif = `publics/${id}.pdf`;
+export async function ecrirePublic(id: string, pdf: Buffer, suffixe?: string): Promise<string> {
+  const relatif = suffixe ? `publics/${id}-${suffixe.replace(/[^a-z0-9-]/gi, "")}.pdf` : `publics/${id}.pdf`;
   const complet = cheminStockage(relatif);
   await mkdir(path.dirname(complet), { recursive: true });
   await writeFile(complet, pdf);
@@ -83,4 +83,11 @@ export async function lireChiffre(relatif: string): Promise<Buffer> {
 
 export async function supprimerStockage(relatif: string): Promise<void> {
   await rm(cheminStockage(relatif), { recursive: true, force: true });
+}
+
+/** Supprime tous les fichiers d'un document (original chiffré, aperçus, version publique). */
+export async function supprimerFichiersDocument(d: { id: string; cheminChiffre: string; cheminPublic: string | null }): Promise<void> {
+  await supprimerStockage(d.cheminChiffre);
+  await supprimerStockage(`apercus/${d.id}`);
+  if (d.cheminPublic) await supprimerStockage(d.cheminPublic);
 }

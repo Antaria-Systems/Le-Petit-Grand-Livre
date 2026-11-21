@@ -1,33 +1,19 @@
-import Link from "next/link";
-import { PictoDonnees } from "@/components/Icones";
-import { RechercheCommune } from "@/components/RechercheCommune";
+import { Entete } from "@/components/Entete";
+import type { Metadata } from "next";
+import { PageIntrouvable } from "@/components/PageIntrouvable";
+import { Pied } from "@/components/Pied";
 
+export const metadata: Metadata = { title: "Page introuvable", robots: { index: false, follow: true } };
+
+/** Adresse inconnue (hors de toute section) : page 404 avec l'en-tête et le pied du site. */
 export default function Introuvable() {
   return (
-    <section className="section">
-      <div className="conteneur page-erreur">
-        <div>
-          <p className="erreur-code">Erreur 404</p>
-          <h1>Page introuvable</h1>
-          <p className="chapo">La page que vous cherchez n&apos;existe pas ou plus.</p>
-          <p>
-            Si vous avez saisi l&apos;adresse, vérifiez-la. La commune que vous cherchez n&apos;est peut-être pas encore couverte&nbsp;:
-            la plateforme démarre dans l&apos;Aude.
-          </p>
-          <RechercheCommune />
-          <div className="boutons-ligne">
-            <Link href="/" className="bouton bouton-principal">
-              Page d&apos;accueil
-            </Link>
-            <Link href="/regions" className="bouton">
-              Tous les territoires
-            </Link>
-          </div>
-        </div>
-        <div className="page-erreur-picto" aria-hidden>
-          <PictoDonnees />
-        </div>
-      </div>
-    </section>
+    <>
+      <Entete />
+      <main id="contenu">
+        <PageIntrouvable />
+      </main>
+      <Pied />
+    </>
   );
 }

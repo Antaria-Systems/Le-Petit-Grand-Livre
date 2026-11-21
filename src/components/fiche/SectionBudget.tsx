@@ -119,7 +119,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
       >
         <nav className="selecteur-annee" aria-label="Choisir l'exercice">
           {annees.map((y) => (
-            <Link key={y} href={`/communes/${slug}?annee=${y}#budget`} scroll={false} aria-current={y === annee ? "page" : undefined}>
+            <Link prefetch={false} key={y} href={`/communes/${slug}?annee=${y}#budget`} scroll={false} aria-current={y === annee ? "page" : undefined}>
               {y}
             </Link>
           ))}
@@ -246,7 +246,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
 
       <p className="source">
         Source : OFGL, comptes du budget principal (balances comptables DGFiP), exercices {plage}, Licence Ouverte 2.0 ·{" "}
-        <Link href="/methodologie#definitions">Définitions</Link> · <a href={`/communes/${slug}/donnees.csv`}>Télécharger les données (CSV)</a>
+        <Link prefetch={false} href="/methodologie#definitions">Définitions</Link> · <a href={`/communes/${slug}/donnees.csv`}>Télécharger les données (CSV)</a>
       </p>
     </section>
   );

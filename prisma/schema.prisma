@@ -41,7 +41,9 @@ model Commune {
   slug            String      @unique // ex. "lavalette-11199" (plusieurs Lavalette en France)
   departementCode String
   departement     Departement @relation(fields: [departementCode], references: [code])
-  population      Int?
+  population      Int? // population municipale (Insee, geo.api.gouv.fr)
+  // Population totale (OFGL, dernier exercice) : référence légale du barème des indemnités
+  populationTotale Int?
   codesPostaux    String[]
   siren           String?
   epciNom         String?
@@ -213,6 +215,11 @@ model Document {
   erreur      String?
   // « Terminer » dans l'éditeur : publier dès que la version occultée est générée
   publierApresGeneration Boolean @default(false)
+  // Incrémenté à chaque modification qui rend la version publique obsolète (zones, statut) :
+  // le worker ne publie que si la révision n'a pas changé pendant la génération.
+  revision    Int               @default(0)
+  // Échecs successifs du worker sur ce document (au-delà de 3 : abandon, erreur affichée)
+  tentatives  Int               @default(0)
   pages       PageDocument[]
   zones       ZoneOccultation[]
   indemnites  IndemniteFonction[]
@@ -224,6 +231,8 @@ model Document {
 
   @@index([communeCode, statut])
   @@index([travail])
+  @@index([demandeId])
+  @@index([operationId])
   @@unique([communeCode, sha256Original])
 }
 
@@ -320,6 +329,9 @@ model Demande {
   envoiProgrammeLe DateTime?
   envoiCopieCachee Boolean   @default(true)
   erreurEnvoi      String?
+  // Réservation de l'envoi (immédiat ou programmé) : posée AVANT l'appel SMTP, de façon atomique.
+  // Tant qu'elle est posée, aucun autre envoi n'est possible ; elle n'est levée qu'en cas d'échec SMTP.
+  envoiEnCoursLe   DateTime?
 
   envoyeeLe     DateTime?
   // Silence d'un mois = refus implicite (R.311-13)
@@ -402,4 +414,11 @@ enum StatutTache {
   EN_COURS
   TERMINEE
   ERREUR
+}
+
+// État partagé entre le worker et l'administration (battement de cœur, dates d'import…).
+model Etat {
+  cle    String   @id
+  valeur String
+  majLe  DateTime @updatedAt
 }

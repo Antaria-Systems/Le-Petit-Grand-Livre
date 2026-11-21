@@ -1,7 +1,9 @@
 import { DepotDocuments } from "@/components/admin/DepotDocuments";
 import { db } from "@/lib/db";
+import { verifierAdminPage } from "@/lib/admin";
 
 export default async function PageDepot({ searchParams }: { searchParams: Promise<{ commune?: string }> }) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { commune: communeDemandee } = await searchParams;
   const communes = await db.commune.findMany({
     where: { departement: { actif: true } },

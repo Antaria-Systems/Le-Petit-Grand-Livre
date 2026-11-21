@@ -35,12 +35,12 @@ export default async function Territoires() {
             {regions.map((r) => (
               <section key={r.code} className="territoire" aria-labelledby={`region-${r.code}`}>
                 <h2 id={`region-${r.code}`}>
-                  <Link href={`/regions/${r.code}`}>{r.nom}</Link>
+                  <Link prefetch={false} href={`/regions/${r.code}`}>{r.nom}</Link>
                 </h2>
                 <ul>
                   {r.departements.map((d) => (
                     <li key={d.code}>
-                      <Link href={`/departements/${d.code}`} className={d.actif ? "couvert" : undefined}>
+                      <Link prefetch={false} href={`/departements/${d.code}`} className={d.actif ? "couvert" : undefined}>
                         <span className="territoire-code chiffres">{d.code}</span>
                         <span className="territoire-nom">{d.nom}</span>
                         {d.actif && <span className="badge badge-ok">{formatEntier(d._count.communes)} communes</span>}

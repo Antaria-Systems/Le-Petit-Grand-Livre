@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
+import { verifierAdminPage } from "@/lib/admin";
 
 export default async function AdminRegions() {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const regions = await db.region.findMany({
     orderBy: { nom: "asc" },
     include: { departements: { select: { actif: true, _count: { select: { communes: true } } } } },

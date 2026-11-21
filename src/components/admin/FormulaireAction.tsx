@@ -3,7 +3,10 @@
 import { useActionState } from "react";
 import type { Etat } from "@/app/admin/actions";
 
-/** Formulaire relié à une action serveur : désactivé pendant l'envoi, message de résultat. */
+/**
+ * Formulaire relié à une action serveur : désactivé pendant l'envoi, message de résultat.
+ * Confirmation : `confirmation` pour tout le formulaire, ou `data-confirmation` sur un bouton.
+ */
 export function FormulaireAction({
   action,
   children,
@@ -20,7 +23,12 @@ export function FormulaireAction({
     <form
       action={executer}
       className={className}
-      onSubmit={confirmation ? (e) => !window.confirm(confirmation) && e.preventDefault() : undefined}
+      onSubmit={(e) => {
+        // Confirmation propre au bouton cliqué (data-confirmation), sinon celle du formulaire.
+        const bouton = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+        const message = bouton?.dataset.confirmation ?? confirmation;
+        if (message && !window.confirm(message)) e.preventDefault();
+      }}
     >
       <fieldset disabled={enCours} className="formulaire-champs">
         {children}

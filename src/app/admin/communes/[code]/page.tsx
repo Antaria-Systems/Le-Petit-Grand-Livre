@@ -4,10 +4,14 @@ import {
   ajouterMessage,
   annulerEnvoiProgramme,
   creerDemande,
+  debloquerEnvoi,
   enregistrerChantier,
   enregistrerFrais,
   enregistrerIndemnite,
+  enregistrerSaisineCada,
   envoyerDemande,
+  envoyerRelance,
+  marquerEnvoyee,
   modifierCommune,
   modifierDemande,
   rattacherDocumentsDemande,
@@ -19,13 +23,24 @@ import {
 import { FormulaireAction } from "@/components/admin/FormulaireAction";
 import { site } from "@/lib/config";
 import { db } from "@/lib/db";
-import { LIBELLES_PIECES, PIECES, situationDemande } from "@/lib/demande";
+import {
+  courrierRelance,
+  courrierSaisineCada,
+  formatJourParis,
+  LIBELLES_PIECES,
+  PIECES,
+  piecesParDefaut,
+  SEUIL_GRANDE_COMMUNE,
+  situationDemande,
+  statutAffiche,
+} from "@/lib/demande";
 import { formatDateCourte, formatEntier, formatEuros } from "@/lib/format";
-import { formatDateHeure, versHeureParis } from "@/lib/heure";
+import { formatDateHeure, formatDateHeureCourte, versHeureParis } from "@/lib/heure";
 import { CATEGORIE_DOCUMENT, STATUT_DEMANDE, STATUT_DOCUMENT } from "@/lib/statuts";
 import { libelleStrate } from "@/lib/strates";
+import { verifierAdminPage } from "@/lib/admin";
 
-type Props = { params: Promise<{ code: string }>; searchParams: Promise<{ onglet?: string }> };
+type Props = { params: Promise<{ code: string }>; searchParams: Promise<{ onglet?: string; cree?: string }> };
 
 const ONGLETS = [
   { id: "infos", libelle: "Informations" },
@@ -44,8 +59,9 @@ const jour = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 const nombre = (d: { toString(): string } | null) => (d === null ? "" : d.toString().replace(".", ","));
 
 export default async function AdminCommune({ params, searchParams }: Props) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { code } = await params;
-  const ongletDemande = (await searchParams).onglet;
+  const { onglet: ongletDemande, cree } = await searchParams;
   const onglet = ONGLETS.find((o) => o.id === ongletDemande)?.id ?? "infos";
   const commune = await db.commune.findUnique({ where: { code }, include: { departement: { include: { region: true } } } });
   if (!commune) notFound();
@@ -460,11 +476,24 @@ export default async function AdminCommune({ params, searchParams }: Props) {
         {/* ─────────────── Demandes CRPA / CADA ─────────────── */}
         {onglet === "demandes" && (
           <>
+            {cree && demandes.some((d) => d.id === cree) && (
+              <p className="alerte alerte-info" role="status">
+                Brouillon créé : relisez le courrier ci-dessous avant de l&apos;envoyer ou de le programmer.
+              </p>
+            )}
             {demandes.map((d) => {
-              const statut = STATUT_DEMANDE[d.statut];
+              const statut = statutAffiche(d) ?? STATUT_DEMANDE[d.statut];
               const alerte = situationDemande(d);
+              const envoyee = d.statut !== "BROUILLON" || d.envoyeeLe !== null;
+              // Envoi bloqué : réservation posée depuis plus de 10 minutes, ou état incertain signalé.
+              const envoiIncertain =
+                d.statut === "BROUILLON" && d.envoiEnCoursLe !== null && (Date.now() - d.envoiEnCoursLe.getTime() > 10 * 60_000 || !!d.erreurEnvoi);
+              const sansReponse = ["ENVOYEE", "RELANCEE", "REFUS_IMPLICITE"].includes(d.statut);
+              const aSaisirCada =
+                (d.statut === "REFUS_IMPLICITE" || d.statut === "REFUS_EXPRES" || (sansReponse && d.echeanceReponse && d.echeanceReponse.getTime() < Date.now())) &&
+                !d.cadaSaisieLe;
               return (
-                <article key={d.id} className="carte demande-admin">
+                <article key={d.id} id={`demande-${d.id}`} className="carte demande-admin">
                   <header className="bloc-titre" style={{ marginBottom: 8 }}>
                     <h2 className="titre-carte" style={{ margin: 0 }}>
                       Demande {d.annee}
@@ -474,14 +503,43 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                   {alerte && <p className={`alerte alerte-${alerte.niveau}`}>{alerte.texte}</p>}
                   <dl className="dl-admin dl-ligne">
                     <dt>Envoyée le</dt>
-                    <dd>{d.envoyeeLe ? formatDateCourte(d.envoyeeLe) : "—"}</dd>
-                    <dt>Réponse attendue avant</dt>
-                    <dd>{d.echeanceReponse ? formatDateCourte(d.echeanceReponse) : "—"}</dd>
-                    <dt>Saisine de la CADA avant</dt>
-                    <dd>{d.limiteSaisineCada ? formatDateCourte(d.limiteSaisineCada) : "—"}</dd>
+                    <dd>{d.envoyeeLe ? formatDateHeureCourte(d.envoyeeLe) : "—"}</dd>
+                    <dt>Réponse attendue au plus tard le</dt>
+                    <dd>{d.echeanceReponse ? formatJourParis(d.echeanceReponse) : "—"}</dd>
+                    <dt>Saisine de la CADA au plus tard le</dt>
+                    <dd>{d.limiteSaisineCada ? formatJourParis(d.limiteSaisineCada) : "—"}</dd>
                     <dt>Documents reçus</dt>
                     <dd>{d._count.documents}</dd>
                   </dl>
+
+                  {envoiIncertain && (
+                    <div className="encadre-envoi encadre-alerte">
+                      <p>
+                        <strong>Envoi bloqué depuis le {formatDateHeureCourte(d.envoiEnCoursLe!)}.</strong> Le courriel est peut-être parti. Avant toute action,
+                        vérifiez la copie cachée dans la boîte de l&apos;association{site.asso.email ? ` (${site.asso.email})` : ""}.
+                      </p>
+                      <div className="envoi-boutons">
+                        <FormulaireAction action={marquerEnvoyee} confirmation="Marquer la demande comme envoyée ?">
+                          <input type="hidden" name="id" value={d.id} />
+                          <label className="case">
+                            <input type="checkbox" name="verifie" value="oui" required /> J&apos;ai vérifié : le courriel <strong>est parti</strong>
+                          </label>
+                          <button type="submit" className="bouton bouton-principal">
+                            Marquer comme envoyée
+                          </button>
+                        </FormulaireAction>
+                        <FormulaireAction action={debloquerEnvoi} confirmation="Débloquer l'envoi ? La demande pourra être renvoyée.">
+                          <input type="hidden" name="id" value={d.id} />
+                          <label className="case">
+                            <input type="checkbox" name="verifie" value="oui" required /> J&apos;ai vérifié : le courriel <strong>n&apos;est pas parti</strong>
+                          </label>
+                          <button type="submit" className="bouton">
+                            Débloquer l&apos;envoi
+                          </button>
+                        </FormulaireAction>
+                      </div>
+                    </div>
+                  )}
 
                   {d.statut === "BROUILLON" && d.envoiProgrammeLe && (
                     <div className="encadre-envoi">
@@ -499,15 +557,21 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                     </div>
                   )}
 
-                  {d.statut === "BROUILLON" && !d.envoiProgrammeLe && (
-                    <FormulaireAction action={envoyerDemande} className="encadre-envoi" confirmation={`Envoyer (ou programmer) la demande à ${d.destinataire || "(aucun destinataire)"} ?`}>
+                  {d.statut === "BROUILLON" && !d.envoiProgrammeLe && !d.envoiEnCoursLe && (
+                    <FormulaireAction action={envoyerDemande} className="encadre-envoi">
                       <input type="hidden" name="id" value={d.id} />
                       <p>
                         <strong>Envoi par courriel</strong> à <code>{d.destinataire || "aucun destinataire : complétez-le ci-dessous"}</code>, depuis{" "}
                         <code>{process.env.SMTP_FROM}</code>.
                       </p>
+                      <div className="apercu-courrier" tabIndex={0} aria-label="Courrier qui sera envoyé">
+                        <p>
+                          <strong>Objet :</strong> {d.objet}
+                        </p>
+                        <pre className="texte-courrier">{d.corps}</pre>
+                      </div>
                       <label className="case">
-                        <input type="checkbox" name="confirmation" value="oui" required /> J&apos;ai relu le courrier et je confirme l&apos;envoi
+                        <input type="checkbox" name="confirmation" value="oui" required /> J&apos;ai relu le courrier ci-dessus et je confirme l&apos;envoi
                       </label>
                       {site.asso.email && (
                         <label className="case">
@@ -515,7 +579,14 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                         </label>
                       )}
                       <div className="envoi-boutons">
-                        <button type="submit" name="mode" value="maintenant" className="bouton bouton-principal" disabled={!d.destinataire}>
+                        <button
+                          type="submit"
+                          name="mode"
+                          value="maintenant"
+                          className="bouton bouton-principal"
+                          disabled={!d.destinataire}
+                          data-confirmation={`Envoyer la demande MAINTENANT à ${d.destinataire} ?`}
+                        >
                           Envoyer maintenant
                         </button>
                         <span className="discret">ou</span>
@@ -523,7 +594,14 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                           <span className="sr-only">Date et heure d&apos;envoi (heure de Paris)</span>
                           <input type="datetime-local" name="quand" defaultValue={prochainEnvoi} min={versHeureParis(new Date(Date.now() + 5 * 60_000))} />
                         </label>
-                        <button type="submit" name="mode" value="programmer" className="bouton" disabled={!d.destinataire}>
+                        <button
+                          type="submit"
+                          name="mode"
+                          value="programmer"
+                          className="bouton"
+                          disabled={!d.destinataire}
+                          data-confirmation={`Programmer l'envoi de la demande à ${d.destinataire} à la date choisie (heure de Paris) ?`}
+                        >
                           Programmer l&apos;envoi
                         </button>
                       </div>
@@ -533,10 +611,69 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                     </FormulaireAction>
                   )}
 
+                  {sansReponse && d.destinataire && (
+                    <details className="admin-depliable-interne">
+                      <summary>Préparer une relance</summary>
+                      <FormulaireAction action={envoyerRelance} confirmation={`Envoyer la relance à ${d.destinataire} ?`}>
+                        <input type="hidden" name="id" value={d.id} />
+                        <p className="petit discret">
+                          Envoyée à <code>{d.destinataire}</code> par le même relais que la demande
+                          {d.envoiCopieCachee && site.asso.email ? `, copie cachée à ${site.asso.email}` : ""}. Objet : « Relance — {d.objet} ».
+                          {d.relanceeLe ? ` Dernière relance le ${formatDateHeureCourte(d.relanceeLe)}.` : ""}
+                        </p>
+                        <label className="champ">
+                          <span>Texte de la relance (modifiable)</span>
+                          <textarea name="corps" rows={14} required defaultValue={courrierRelance(d)} className="texte-courrier" />
+                        </label>
+                        <label className="case">
+                          <input type="checkbox" name="confirmation" value="oui" required /> J&apos;ai relu la relance et je confirme l&apos;envoi
+                        </label>
+                        <button type="submit" className="bouton bouton-principal">
+                          Envoyer la relance
+                        </button>
+                      </FormulaireAction>
+                    </details>
+                  )}
+
+                  {(aSaisirCada || d.statut === "CADA_SAISIE") && (
+                    <details className="admin-depliable-interne" open={!!aSaisirCada && !d.cadaSaisieLe}>
+                      <summary>Saisine de la CADA</summary>
+                      {!d.cadaSaisieLe && (
+                        <>
+                          <p className="petit">
+                            La saisine se fait en ligne sur{" "}
+                            <a href="https://www.cada.fr" target="_blank" rel="noopener noreferrer">
+                              cada.fr
+                            </a>{" "}
+                            (formulaire de saisine) ou par courrier, avec une copie de la demande initiale. Texte prêt à copier :
+                          </p>
+                          <textarea readOnly rows={14} className="texte-courrier" defaultValue={courrierSaisineCada(d, commune)} aria-label="Texte de la saisine de la CADA" />
+                        </>
+                      )}
+                      <FormulaireAction action={enregistrerSaisineCada}>
+                        <input type="hidden" name="id" value={d.id} />
+                        <div className="grille-champs">
+                          <label className="champ">
+                            <span>CADA saisie le</span>
+                            <input name="date" type="date" required defaultValue={jour(d.cadaSaisieLe ?? new Date())} />
+                          </label>
+                          <label className="champ">
+                            <span>N° de dossier CADA (si connu)</span>
+                            <input name="numeroCada" defaultValue={d.numeroCada ?? ""} maxLength={60} />
+                          </label>
+                        </div>
+                        <button type="submit" className="bouton">
+                          {d.cadaSaisieLe ? "Mettre à jour la saisine" : "J'ai saisi la CADA"}
+                        </button>
+                      </FormulaireAction>
+                    </details>
+                  )}
+
                   <details className="admin-depliable-interne">
                     <summary>Courrier, statut et dates</summary>
                     <FormulaireAction action={modifierDemande}>
                       <input type="hidden" name="id" value={d.id} />
+                      <input type="hidden" name="majLe" value={d.majLe.toISOString()} />
                       <div className="grille-champs">
                         <label className="champ">
                           <span>Destinataire</span>
@@ -545,7 +682,7 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                         <label className="champ">
                           <span>Statut</span>
                           <select name="statut" defaultValue={d.statut}>
-                            {STATUTS.map((s) => (
+                            {STATUTS.filter((s) => !(envoyee && s === "BROUILLON")).map((s) => (
                               <option key={s} value={s}>
                                 {STATUT_DEMANDE[s].libelle}
                               </option>
@@ -601,13 +738,14 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                       </label>
                       <p className="petit discret">
                         L&apos;échéance de réponse (un mois) et la date limite de saisine de la CADA (deux mois après le refus) sont recalculées à
-                        l&apos;enregistrement.
+                        l&apos;enregistrement, au jour près (à défaut de quantième identique, le dernier jour du mois). Si la demande a changé depuis
+                        l&apos;ouverture de la page (envoi programmé effectué…), l&apos;enregistrement est refusé : rechargez d&apos;abord.
                       </p>
                       <button type="submit" className="bouton bouton-principal">
                         Enregistrer
                       </button>
                     </FormulaireAction>
-                    {d.statut === "BROUILLON" && (
+                    {!envoyee && !d.envoiEnCoursLe && (
                       <FormulaireAction action={supprimerDemande} confirmation="Supprimer ce brouillon ?" className="formulaire-suppression">
                         <input type="hidden" name="id" value={d.id} />
                         <button type="submit" className="bouton">
@@ -640,7 +778,7 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                           <span>Sens</span>
                           <select name="sens" defaultValue="ENTRANT">
                             <option value="ENTRANT">Reçu (mairie, CADA…)</option>
-                            <option value="SORTANT">Envoyé (relance, saisine…)</option>
+                            <option value="SORTANT">Envoyé hors plateforme (courrier postal…)</option>
                           </select>
                         </label>
                         <label className="champ">
@@ -698,6 +836,17 @@ export default async function AdminCommune({ params, searchParams }: Props) {
               <summary>
                 <strong>+ Nouvelle demande</strong>
               </summary>
+              {(() => {
+                // Une demande par commune et par an : moins de 11 mois après la précédente, risque de demande « répétitive » (L.311-2).
+                const derniere = demandes.find((x) => x.envoyeeLe);
+                const recente = derniere?.envoyeeLe && Date.now() - derniere.envoyeeLe.getTime() < 335 * 86_400_000;
+                return recente ? (
+                  <p className="alerte alerte-attention">
+                    La dernière demande a été envoyée le {formatJourParis(derniere!.envoyeeLe!)}, il y a moins de 11 mois. Une nouvelle demande aussi
+                    rapprochée pourrait être jugée répétitive (art. L.311-2 du CRPA).
+                  </p>
+                ) : null;
+              })()}
               <FormulaireAction action={creerDemande}>
                 <input type="hidden" name="communeCode" value={code} />
                 <div className="grille-champs">
@@ -714,10 +863,17 @@ export default async function AdminCommune({ params, searchParams }: Props) {
                   <legend>Pièces demandées</legend>
                   {(Object.keys(PIECES) as (keyof typeof PIECES)[]).map((p) => (
                     <label key={p} className="case">
-                      <input type="checkbox" name="pieces" value={p} defaultChecked /> {LIBELLES_PIECES[p]}
+                      <input type="checkbox" name="pieces" value={p} defaultChecked={piecesParDefaut(commune.population).includes(p)} /> {LIBELLES_PIECES[p]}
                     </label>
                   ))}
                 </fieldset>
+                {(commune.population ?? 0) >= SEUIL_GRANDE_COMMUNE && (
+                  <p className="petit">
+                    Commune de plus de {formatEntier(SEUIL_GRANDE_COMMUNE)} habitants : budgets, comptes et délibérations sont en principe déjà en ligne, et
+                    « toutes les factures » représenteraient des milliers de pièces (risque de demande abusive). L&apos;état des mandats
+                    d&apos;investissement permet ensuite de cibler les opérations significatives.
+                  </p>
+                )}
                 <p className="petit discret">
                   Une seule demande groupée par commune et par an. Le courrier est généré en brouillon : vous le relisez avant tout envoi.
                   {commune.mairieEmail ? ` Destinataire : ${commune.mairieEmail}.` : " Aucune adresse de mairie : complétez-la dans l'onglet Informations."}

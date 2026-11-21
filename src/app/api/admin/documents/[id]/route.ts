@@ -21,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
-  const donnees = schema.safeParse(await req.json());
+  const donnees = schema.safeParse(await req.json().catch(() => null));
   if (!donnees.success) return Response.json({ erreur: donnees.error.message }, { status: 400 });
   const { dateDocument, operationId, ...reste } = donnees.data;
   if (operationId) {
@@ -48,7 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
-  const doc = await db.document.findUnique({ where: { id }, select: { statut: true, travail: true, erreur: true, cheminPublic: true } });
+  const doc = await db.document.findUnique({ where: { id }, select: { titre: true, statut: true, travail: true, erreur: true, cheminPublic: true } });
   if (!doc) return Response.json({ erreur: "Introuvable" }, { status: 404 });
-  return Response.json({ statut: doc.statut, travail: doc.travail, erreur: doc.erreur, aVersionPublique: !!doc.cheminPublic });
+  return Response.json({ titre: doc.titre, statut: doc.statut, travail: doc.travail, erreur: doc.erreur, aVersionPublique: !!doc.cheminPublic });
 }

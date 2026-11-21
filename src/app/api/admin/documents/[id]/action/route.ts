@@ -10,18 +10,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
-  const donnees = schema.safeParse(await req.json());
+  const donnees = schema.safeParse(await req.json().catch(() => null));
   if (!donnees.success) return Response.json({ erreur: "Action inconnue" }, { status: 400 });
-  const doc = await db.document.findUniqueOrThrow({ where: { id }, include: { _count: { select: { zones: { where: { validee: false } } } } } });
+  const doc = await db.document.findUnique({ where: { id }, include: { _count: { select: { zones: { where: { validee: false } } } } } });
+  if (!doc) return Response.json({ erreur: "Document introuvable" }, { status: 404 });
+  // Toute action rend une génération en cours obsolète (le worker jettera son résultat).
+  const rev = { revision: { increment: 1 } };
   const erreur = (message: string) => Response.json({ erreur: message }, { status: 409 });
 
   switch (donnees.data.action) {
     case "valider-tout":
-      await db.zoneOccultation.updateMany({ where: { documentId: id }, data: { validee: true } });
+      await db.$transaction([
+        db.zoneOccultation.updateMany({ where: { documentId: id }, data: { validee: true } }),
+        db.document.update({ where: { id }, data: rev }),
+      ]);
       break;
     case "generer":
       if (doc._count.zones > 0) return erreur("Validez ou supprimez d'abord toutes les zones proposées.");
-      await db.document.update({ where: { id }, data: { travail: "GENERER", erreur: null } });
+      if (doc.statut === "NON_PUBLIABLE") return erreur("Ce document est marqué non publiable.");
+      await db.document.update({ where: { id }, data: { ...rev, travail: "GENERER", erreur: null, tentatives: 0 } });
       break;
     case "terminer":
       // Vérification terminée : tout valider, générer, puis publier automatiquement (worker).
@@ -29,24 +36,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!doc.nbPages) return erreur("Le document n'a pas encore été analysé.");
       await db.$transaction([
         db.zoneOccultation.updateMany({ where: { documentId: id }, data: { validee: true } }),
-        db.document.update({ where: { id }, data: { travail: "GENERER", publierApresGeneration: true, erreur: null } }),
+        db.document.update({ where: { id }, data: { ...rev, travail: "GENERER", publierApresGeneration: true, erreur: null, tentatives: 0 } }),
       ]);
       break;
     case "publier":
-      if (doc.statut !== "OCCULTE" || !doc.cheminPublic) return erreur("Générez d'abord la version occultée, à jour.");
-      await db.document.update({ where: { id }, data: { statut: "PUBLIE", publieLe: new Date() } });
+      if (doc.statut !== "OCCULTE" || !doc.cheminPublic || doc.travail) return erreur("Générez d'abord la version occultée, à jour.");
+      await db.document.update({ where: { id }, data: { statut: "PUBLIE", publieLe: new Date(), erreur: null } });
       break;
     case "depublier":
       await db.document.update({
         where: { id },
-        data: { statut: doc.cheminPublic ? "OCCULTE" : "A_VERIFIER", publieLe: null, publierApresGeneration: false },
+        data: { ...rev, statut: doc.cheminPublic ? "OCCULTE" : "A_VERIFIER", publieLe: null, publierApresGeneration: false, travail: doc.travail === "GENERER" ? null : doc.travail },
       });
       break;
     case "non-publiable":
-      await db.document.update({ where: { id }, data: { statut: "NON_PUBLIABLE", publieLe: null, publierApresGeneration: false } });
+      await db.document.update({ where: { id }, data: { ...rev, statut: "NON_PUBLIABLE", publieLe: null, publierApresGeneration: false, travail: null } });
       break;
     case "reanalyser":
-      await db.document.update({ where: { id }, data: { travail: "ANALYSER", statut: "RECU", publieLe: null } });
+      await db.document.update({ where: { id }, data: { ...rev, travail: "ANALYSER", statut: "RECU", publieLe: null, publierApresGeneration: false, erreur: null, tentatives: 0 } });
       break;
   }
   return Response.json({ ok: true });

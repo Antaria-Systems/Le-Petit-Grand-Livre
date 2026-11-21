@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { groupesAutorises, identifiantsValides, oidcActif } from "@/lib/admin-auth";
+import { basicActif, groupesAutorises, identifiantsValides, oidcActif, SESSION_MAX_MS } from "@/lib/admin-auth";
 
 export const proxy = auth((req) => {
   const oidc = oidcActif();
+  const connecteLe = (req.auth?.user as { connecteLe?: number } | undefined)?.connecteLe ?? 0;
   const autorise = oidc
-    ? Boolean(req.auth?.user) && groupesAutorises(req.auth?.user?.groups)
+    ? Boolean(req.auth?.user) && groupesAutorises(req.auth?.user?.groups) && Date.now() - connecteLe < SESSION_MAX_MS
     : identifiantsValides(req.headers.get("authorization"));
 
   if (!autorise) {
+    // Ni Authentik ni accès Basic explicitement activé : l'administration est fermée.
+    if (!oidc && !basicActif()) return new NextResponse("Administration non configurée", { status: 503 });
     if (!oidc) {
       return new NextResponse("Authentification requise", {
         status: 401,

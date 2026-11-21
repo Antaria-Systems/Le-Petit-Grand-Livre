@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Public_Sans } from "next/font/google";
-import { Entete } from "@/components/Entete";
-import { Pied } from "@/components/Pied";
 import { scriptTheme } from "@/components/BoutonTheme";
 import { site } from "@/lib/config";
 import "./globals.css";
@@ -25,11 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: scriptTheme }} />
       </head>
-      <body>
-        <Entete />
-        <main id="contenu">{children}</main>
-        <Pied />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

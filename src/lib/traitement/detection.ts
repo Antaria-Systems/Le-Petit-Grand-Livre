@@ -26,6 +26,40 @@ export function ibanValide(brut: string): boolean {
   return reste === 1;
 }
 
+/** Motif IBAN commun à la détection et au contrôle avant publication. */
+export const REGEX_IBAN = /\b[A-Z]{2}\s?\d{2}(?:[\s.]?[A-Z0-9]{2,4}){3,8}\b/g;
+
+/** Clé RIB français (banque 5, guichet 5, compte 11, clé 2). */
+export function ribValide(brut: string): boolean {
+  const s = brut.replace(/[\s.]/g, "").toUpperCase();
+  const m = s.match(/^(\d{5})(\d{5})([A-Z0-9]{11})(\d{2})$/);
+  if (!m) return false;
+  const lettres = "123456789123456789234567890".split("");
+  const compte = m[3].replace(/[A-Z]/g, (c) => lettres[c.charCodeAt(0) - 65]);
+  const n = BigInt(m[1]) * 89n + BigInt(m[2]) * 15n + BigInt(compte) * 3n;
+  return 97n - (n % 97n) === BigInt(m[4]);
+}
+
+/** Numéro de sécurité sociale (NIR) : clé = 97 − (13 premiers chiffres mod 97), Corse 2A/2B gérée. */
+export function nirValide(brut: string): boolean {
+  const s = brut.replace(/[\s.]/g, "").toUpperCase();
+  const m = s.match(/^([12]\d{4})(\d{2}|2A|2B)(\d{6})(\d{2})$/);
+  if (!m) return false;
+  const dep = m[2] === "2A" ? "19" : m[2] === "2B" ? "18" : m[2];
+  const corps = BigInt(m[1] + dep + m[3]);
+  return 97n - (corps % 97n) === BigInt(m[4]);
+}
+
+/** Valeur masquée pour les messages d'erreur (jamais la valeur complète en base). */
+export function masquer(valeur: string): string {
+  const v = valeur.replace(/\s+/g, "");
+  if (v.includes("@")) {
+    const [local, domaine] = v.split("@");
+    return `${local.slice(0, 2)}***@${domaine}`;
+  }
+  return v.length <= 6 ? "***" : `${v.slice(0, 4)}***${v.slice(-2)}`;
+}
+
 /** Coordonnées publiques à ne pas masquer (mairie). */
 export type Exclusions = { telephones: string[]; emails: string[] };
 
@@ -37,7 +71,7 @@ function regles(ex: Exclusions): Regle[] {
     // ≥ 15 caractères utiles : exclut les n° de TVA intracommunautaire, publics.
     {
       motif: "DONNEES_BANCAIRES",
-      regex: /\b[A-Z]{2}\s?\d{2}(?:[\s.]?[A-Z0-9]{2,4}){3,8}\b/g,
+      regex: REGEX_IBAN,
       filtre: (m, ligne) =>
         m.replace(/[\s.]/g, "").length >= 15 && (ibanValide(m) || /\b(IBAN|I\.B\.A\.N|RIB|R\.I\.B|BIC|banque|domiciliation)\b/i.test(ligne)),
     },

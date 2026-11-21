@@ -14,7 +14,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const refus = await refusAdmin(req);
   if (refus) return refus;
   const { id } = await params;
-  const donnees = schema.safeParse(await req.json());
+  const donnees = schema.safeParse(await req.json().catch(() => null));
   if (!donnees.success) return Response.json({ erreur: "Document source manquant" }, { status: 400 });
 
   const [cible, source] = await Promise.all([

@@ -1464,9 +1464,25 @@ details > summary { cursor: pointer; }
 .admin-barre .conteneur { display: flex; align-items: center; gap: 4px 20px; min-height: 48px; flex-wrap: wrap; }
 .admin-barre a { color: #ffffff; text-decoration: none; padding: 4px 0; }
 .admin-barre a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.admin-barre .admin-marque { font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.8125rem; padding-right: 16px; border-right: 1px solid rgba(255, 255, 255, 0.25); }
+.admin-barre .admin-marque { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.8125rem; padding-right: 16px; border-right: 1px solid rgba(255, 255, 255, 0.25); }
 .admin-barre .discret { color: rgba(255, 255, 255, 0.72); margin-left: auto; }
 .admin-barre .lien-bouton { color: #ffffff; }
+.admin-barre .admin-site { font-size: 0.875rem; }
+.admin-barre .bouton-theme { color: #ffffff; border-color: rgba(255, 255, 255, 0.4); }
+
+/* Demandes : aperçu du courrier à relire, encadré d'alerte (envoi bloqué) */
+.apercu-courrier { max-height: 320px; overflow: auto; background: var(--surface); border: 1px solid var(--line); padding: 12px 16px; margin: 8px 0 12px; }
+.apercu-courrier p { margin: 0 0 8px; }
+.apercu-courrier .texte-courrier { margin: 0; white-space: pre-wrap; }
+.encadre-alerte { border-left-color: var(--rouge) !important; }
+.encadre-alerte .envoi-boutons { align-items: flex-start; gap: 24px; }
+.chiffre-alerte { border-top-color: var(--rouge) !important; }
+.chiffre-alerte dd a { color: var(--rouge); }
+
+/* Listes d'administration : filtres et pagination */
+.filtres-admin { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; margin: 0 0 12px; }
+.filtres-admin .champ { margin: 0; min-width: 200px; }
+.pagination { display: flex; gap: 20px; align-items: center; justify-content: center; margin: 20px 0 0; }
 
 .titre-carte { font-size: 1.125rem; margin: 0 0 12px; }
 .titre-section-admin { font-size: 1.25rem; margin: 32px 0 12px; }

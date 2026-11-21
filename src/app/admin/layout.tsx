@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { signOut } from "@/auth";
+import { BoutonTheme } from "@/components/BoutonTheme";
+import { LogoRegistre } from "@/components/Icones";
+import { site } from "@/lib/config";
 import { verifierAdminPage } from "@/lib/admin";
 
 export const metadata: Metadata = { title: "Administration", robots: { index: false, follow: false } };
@@ -15,9 +18,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="admin">
+      <nav className="liens-evitement" aria-label="Accès rapide">
+        <ul>
+          <li>
+            <a href="#contenu">Contenu</a>
+          </li>
+        </ul>
+      </nav>
       <div className="admin-barre">
         <div className="conteneur">
-          <Link href="/admin" className="admin-marque">
+          <Link href="/admin" className="admin-marque" title={`${site.nom} · administration`}>
+            <LogoRegistre taille={28} />
             Administration
           </Link>
           <Link href="/admin/regions">Territoires</Link>
@@ -27,6 +38,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className="discret petit">
             {admin.mode === "oidc" ? admin.nom : "Accès provisoire par mot de passe"}
           </span>
+          <Link href="/" className="admin-site">
+            Site public ↗
+          </Link>
+          <BoutonTheme />
           {admin.mode === "oidc" && (
             <form action={seDeconnecter}>
               <button type="submit" className="lien-bouton">
@@ -36,7 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           )}
         </div>
       </div>
-      {children}
+      <main id="contenu">{children}</main>
     </div>
   );
 }

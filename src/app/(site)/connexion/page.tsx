@@ -7,9 +7,19 @@ export const metadata: Metadata = { title: "Connexion", robots: { index: false, 
 
 type Props = { searchParams: Promise<{ callbackUrl?: string; error?: string }> };
 
-/** N'accepte qu'un chemin interne (pas de redirection ouverte vers un autre site). */
+/**
+ * N'accepte qu'un chemin de l'administration (pas de redirection ouverte vers un autre site) :
+ * l'URL est analysée comme le ferait le navigateur (tabulations, barres obliques inverses…).
+ */
 function cheminSur(url: string | undefined): string {
-  return url && url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/\\") ? url : "/admin";
+  if (!url || /[\x00-\x1f\\]/.test(url)) return "/admin";
+  try {
+    const base = "http://local.invalid";
+    const u = new URL(url, base);
+    return u.origin === base && (u.pathname === "/admin" || u.pathname.startsWith("/admin/")) ? u.pathname + u.search : "/admin";
+  } catch {
+    return "/admin";
+  }
 }
 
 export default async function Connexion({ searchParams }: Props) {
@@ -34,8 +44,8 @@ export default async function Connexion({ searchParams }: Props) {
             <>
               {error === "AccessDenied" && (
                 <p className="badge badge-alerte" style={{ whiteSpace: "normal" }}>
-                  Ce compte n&apos;appartient pas au groupe autorisé. Dans Authentik, ajoutez-le au groupe «&nbsp;
-                  {process.env.AUTH_ADMIN_GROUP}&nbsp;», puis reconnectez-vous.
+                  Ce compte n&apos;est pas autorisé à administrer la plateforme. Un administrateur doit l&apos;ajouter au groupe
+                  d&apos;administration dans Authentik ; reconnectez-vous ensuite.
                 </p>
               )}
               {error && error !== "AccessDenied" && (

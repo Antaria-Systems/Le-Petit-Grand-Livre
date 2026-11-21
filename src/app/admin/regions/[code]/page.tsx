@@ -4,8 +4,10 @@ import { activerDepartement, desactiverDepartement } from "@/app/admin/actions";
 import { FormulaireAction } from "@/components/admin/FormulaireAction";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
+import { verifierAdminPage } from "@/lib/admin";
 
 export default async function AdminRegion({ params }: { params: Promise<{ code: string }> }) {
+  await verifierAdminPage(); // défense en profondeur (en plus du proxy et du layout)
   const { code } = await params;
   const region = await db.region.findUnique({
     where: { code },
