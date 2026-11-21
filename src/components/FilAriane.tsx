@@ -1,8 +1,11 @@
 import Link from "next/link";
 
-export function FilAriane({ elements }: { elements: { libelle: string; href?: string }[] }) {
+export type Etape = { libelle: string; href?: string };
+
+/** Fil d'Ariane ; le dernier élément est la page courante. */
+export function FilAriane({ elements }: { elements: Etape[] }) {
   return (
-    <nav className="fil-ariane conteneur" aria-label="Fil d'Ariane">
+    <nav className="fil-ariane" aria-label="Vous êtes ici">
       <ol>
         <li>
           <Link href="/">Accueil</Link>

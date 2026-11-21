@@ -24,14 +24,28 @@ export function FiltreCommunes({ communes }: { communes: C[] }) {
   return (
     <>
       <div className="filtre-communes">
-        <label htmlFor="filtre" className="sr-only">
-          Filtrer les communes
-        </label>
-        <input id="filtre" type="search" placeholder="Filtrer les communes…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <p className="discret petit" aria-live="polite" style={{ margin: "6px 0 0" }}>
-          {filtrees.length} commune{filtrees.length > 1 ? "s" : ""}
+        <div className="champ">
+          <label htmlFor="filtre">Filtrer les communes</label>
+          <input id="filtre" type="search" placeholder="Nom de la commune" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+        </div>
+        <p className="filtre-compte" aria-live="polite">
+          <strong className="chiffres">{formatEntier(filtrees.length)}</strong> commune{filtrees.length > 1 ? "s" : ""}
         </p>
       </div>
+      {parLettre.size > 1 && (
+        <nav className="index-lettres" aria-label="Aller à la lettre">
+          {[...parLettre.keys()].map((l) => (
+            <a key={l} href={`#lettre-${l}`}>
+              {l}
+            </a>
+          ))}
+        </nav>
+      )}
+      {filtrees.length === 0 && (
+        <div className="vide">
+          <strong>Aucune commune ne correspond à « {q} ».</strong>
+        </div>
+      )}
       <div className="lettres">
         {[...parLettre].map(([lettre, liste]) => (
           <section key={lettre} className="lettre" aria-labelledby={`lettre-${lettre}`}>

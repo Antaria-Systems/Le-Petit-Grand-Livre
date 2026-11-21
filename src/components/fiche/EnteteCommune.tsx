@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatEntier } from "@/lib/format";
+import { centreChemin as centre } from "@/lib/geometrie";
 import { libelleStrate } from "@/lib/strates";
 
 type Props = {
@@ -22,14 +23,6 @@ type Props = {
   carte: { viewBox: string; chemin: string } | null;
   nbDocuments: number;
 };
-
-/** Centre de la boîte englobante d'un chemin SVG (« M x,y L x,y … »). */
-function centre(chemin: string): [number, number] {
-  const n = chemin.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? [];
-  const xs = n.filter((_, i) => i % 2 === 0);
-  const ys = n.filter((_, i) => i % 2 === 1);
-  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
-}
 
 export function EnteteCommune({ commune, departement, region, carte, nbDocuments }: Props) {
   const site = commune.mairieSite?.replace(/^https?:\/\//, "").replace(/\/$/, "");

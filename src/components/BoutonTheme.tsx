@@ -11,7 +11,7 @@ function themeActuel(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function BoutonTheme() {
+export function BoutonTheme({ avecLibelle = false }: { avecLibelle?: boolean }) {
   const [theme, setTheme] = useState<Theme | null>(null);
   useEffect(() => setTheme(themeActuel()), []);
 
@@ -27,6 +27,13 @@ export function BoutonTheme() {
   }
 
   const libelle = theme === "dark" ? "Passer en thème clair" : "Passer en thème sombre";
+  if (avecLibelle)
+    return (
+      <button type="button" className="bouton-outil" onClick={basculer} title={libelle}>
+        {theme === "dark" ? <IconeSoleil taille={16} /> : <IconeLune taille={16} />}
+        {theme === "dark" ? "Thème clair" : "Thème sombre"}
+      </button>
+    );
   return (
     <button type="button" className="bouton-theme" onClick={basculer} aria-label={libelle} title={libelle}>
       {theme === "dark" ? <IconeSoleil /> : <IconeLune />}

@@ -24,9 +24,10 @@ export default async function Connexion({ searchParams }: Props) {
 
   return (
     <section className="section">
-      <div className="conteneur" style={{ maxWidth: 480 }}>
-        <div className="carte">
-          <h1 style={{ fontSize: "1.5rem" }}>Administration</h1>
+      <div className="conteneur page-centree">
+        <div className="carte carte-connexion">
+          <p className="surtitre">Espace réservé</p>
+          <h1>Administration</h1>
           {!oidcActif() ? (
             <p className="discret">La connexion par Authentik n&apos;est pas encore configurée sur ce serveur.</p>
           ) : (

@@ -6,8 +6,15 @@ import type { ResultatRecherche } from "@/app/api/communes/route";
 import { formatEntier } from "@/lib/format";
 import { IconeRecherche } from "./Icones";
 
-/** Champ de recherche de commune (combobox ARIA : flèches, Entrée, Échap). */
-export function RechercheCommune() {
+/**
+ * Champ de recherche de commune (combobox ARIA : flèches, Entrée, Échap).
+ * « grande » : accueil, avec libellé et bouton ; « compacte » : en-tête.
+ */
+export function RechercheCommune({
+  variante = "grande",
+}: {
+  variante?: "grande" | "compacte";
+}) {
   const router = useRouter();
   const id = useId();
   const [q, setQ] = useState("");
@@ -26,7 +33,9 @@ export function RechercheCommune() {
       const ctrl = new AbortController();
       requete.current = ctrl;
       try {
-        const res = await fetch(`/api/communes?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+        const res = await fetch(`/api/communes?q=${encodeURIComponent(q)}`, {
+          signal: ctrl.signal,
+        });
         const data = (await res.json()) as ResultatRecherche[];
         setResultats(data);
         setActif(data.length ? 0 : -1);
@@ -46,40 +55,81 @@ export function RechercheCommune() {
   function clavier(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!ouvert || resultats.length === 0) return;
     if (e.key === "ArrowDown") setActif((a) => (a + 1) % resultats.length);
-    else if (e.key === "ArrowUp") setActif((a) => (a - 1 + resultats.length) % resultats.length);
+    else if (e.key === "ArrowUp")
+      setActif((a) => (a - 1 + resultats.length) % resultats.length);
     else if (e.key === "Enter" && actif >= 0) aller(resultats[actif]);
     else if (e.key === "Escape") setOuvert(false);
     else return;
     e.preventDefault();
   }
 
+  function soumettre(e: React.FormEvent) {
+    e.preventDefault();
+    const r = resultats[actif >= 0 ? actif : 0];
+    if (r && q.trim().length >= 2) aller(r);
+    else setOuvert(true);
+  }
+
   const montrer = ouvert && q.trim().length >= 2;
+  const grande = variante === "grande";
   return (
-    <div className="recherche">
-      <label htmlFor={`${id}-champ`}>Rechercher une commune</label>
-      <IconeRecherche className="recherche-icone" />
-      <input
-        id={`${id}-champ`}
-        className="recherche-champ"
-        type="search"
-        placeholder="Nom ou code postal, ex. Lavalette ou 11290"
-        autoComplete="off"
-        role="combobox"
-        aria-expanded={montrer}
-        aria-controls={`${id}-liste`}
-        aria-autocomplete="list"
-        aria-activedescendant={montrer && actif >= 0 ? `${id}-opt-${actif}` : undefined}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onKeyDown={clavier}
-        onFocus={() => setOuvert(true)}
-        onBlur={() => setTimeout(() => setOuvert(false), 150)}
-      />
+    <form
+      role="search"
+      className={`recherche recherche-${variante}`}
+      onSubmit={soumettre}
+    >
+      <label
+        htmlFor={`${id}-champ`}
+        className={grande ? "recherche-libelle" : "sr-only"}
+      >
+        Rechercher une commune
+      </label>
+      {grande && (
+        <p className="recherche-aide" id={`${id}-aide`}>
+          Nom de la commune ou code postal
+        </p>
+      )}
+      <div className="recherche-barre">
+        <input
+          id={`${id}-champ`}
+          className="recherche-champ"
+          type="search"
+          aria-describedby={grande ? `${id}-aide` : undefined}
+          placeholder={
+            grande ? "Ex. Lavalette ou 11290" : "Rechercher une commune"
+          }
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={montrer}
+          aria-controls={`${id}-liste`}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            montrer && actif >= 0 ? `${id}-opt-${actif}` : undefined
+          }
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={clavier}
+          onFocus={() => setOuvert(true)}
+          onBlur={() => setTimeout(() => setOuvert(false), 150)}
+        />
+        <button type="submit" className="recherche-bouton" title="Rechercher">
+          <IconeRecherche taille={grande ? 20 : 18} />
+          <span className={grande ? undefined : "sr-only"}>Rechercher</span>
+        </button>
+      </div>
       {montrer && (
-        <ul className="recherche-resultats" id={`${id}-liste`} role="listbox" aria-label="Communes trouvées">
+        <ul
+          className="recherche-resultats"
+          id={`${id}-liste`}
+          role="listbox"
+          aria-label="Communes trouvées"
+        >
           {resultats.length === 0 ? (
             <li role="option" aria-selected={false} aria-disabled>
-              <span className="discret">Aucune commune couverte ne correspond. La plateforme couvre pour l&apos;instant l&apos;Aude.</span>
+              <span className="discret">
+                Aucune commune couverte ne correspond. La plateforme couvre pour
+                l&apos;instant l&apos;Aude.
+              </span>
             </li>
           ) : (
             resultats.map((r, i) => (
@@ -95,7 +145,8 @@ export function RechercheCommune() {
                 onMouseEnter={() => setActif(i)}
               >
                 <span>
-                  <strong>{r.nom}</strong> <span className="discret">{r.codesPostaux[0]}</span>
+                  <strong>{r.nom}</strong>{" "}
+                  <span className="discret">{r.codesPostaux[0]}</span>
                 </span>
                 <span className="discret">
                   {r.departement}
@@ -106,6 +157,6 @@ export function RechercheCommune() {
           )}
         </ul>
       )}
-    </div>
+    </form>
   );
 }

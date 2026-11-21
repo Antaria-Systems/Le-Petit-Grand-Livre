@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Public_Sans } from "next/font/google";
 import { Entete } from "@/components/Entete";
 import { Pied } from "@/components/Pied";
 import { scriptTheme } from "@/components/BoutonTheme";
@@ -9,7 +9,8 @@ import "./globals.css";
 // Toutes les pages lisent la base : rendu à la requête.
 export const dynamic = "force-dynamic";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+// Linéale sobre et très lisible, libre (SIL OFL) : la police Marianne est réservée aux sites de l'État.
+const police = Public_Sans({ subsets: ["latin"], variable: "--police", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: `${site.nom} · les finances de votre commune, en clair`, template: `%s · ${site.nom}` },
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={inter.variable} suppressHydrationWarning>
+    <html lang="fr" className={police.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: scriptTheme }} />
       </head>

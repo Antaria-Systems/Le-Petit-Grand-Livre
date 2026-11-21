@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FilAriane } from "@/components/FilAriane";
+import { EnTetePage } from "@/components/EnTetePage";
+import { IconeFleche } from "@/components/Icones";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
 
@@ -22,29 +23,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PageRegion({ params }: Props) {
   const region = await charger((await params).code);
   if (!region) notFound();
+  const couverts = region.departements.filter((d) => d.actif);
+  const communes = couverts.reduce((s, d) => s + d._count.communes, 0);
 
   return (
     <>
-      <FilAriane elements={[{ libelle: region.nom }]} />
+      <EnTetePage
+        ariane={[{ libelle: "Territoires", href: "/regions" }, { libelle: region.nom }]}
+        surtitre="Région"
+        titre={region.nom}
+        chapo={
+          couverts.length > 0
+            ? `${couverts.length} département${couverts.length > 1 ? "s" : ""} couvert${couverts.length > 1 ? "s" : ""} sur ${region.departements.length}, soit ${formatEntier(communes)} communes.`
+            : `Aucun des ${region.departements.length} départements de la région n'est encore couvert.`
+        }
+      />
       <section className="section">
         <div className="conteneur">
-          <p className="surtitre">Région</p>
-          <h1>{region.nom}</h1>
-          <h2 className="sr-only">Départements</h2>
-          <div className="grille" style={{ marginTop: 24 }}>
+          <h2 className="titre-liste">Départements</h2>
+          <ul className="tuiles-territoires">
             {region.departements.map((d) => (
-              <Link key={d.code} href={`/departements/${d.code}`} className={`carte carte-region${d.actif ? "" : " carte-inactive"}`}>
-                <h3>
-                  {d.nom} <span className="discret">({d.code})</span>
-                </h3>
-                {d.actif ? (
-                  <span className="badge badge-accent">{formatEntier(d._count.communes)} communes couvertes</span>
-                ) : (
-                  <span className="badge">Pas encore couvert</span>
-                )}
-              </Link>
+              <li key={d.code}>
+                <Link href={`/departements/${d.code}`} className={`tuile-territoire${d.actif ? " couvert" : ""}`}>
+                  <span className="tuile-territoire-code chiffres">{d.code}</span>
+                  <span className="tuile-territoire-nom">{d.nom}</span>
+                  {d.actif ? (
+                    <span className="badge badge-ok">{formatEntier(d._count.communes)} communes couvertes</span>
+                  ) : (
+                    <span className="badge">Pas encore couvert</span>
+                  )}
+                  {d.actif && <IconeFleche className="tuile-fleche" />}
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
     </>

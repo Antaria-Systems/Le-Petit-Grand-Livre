@@ -1,14 +1,32 @@
 import Link from "next/link";
+import { PictoDonnees } from "@/components/Icones";
+import { RechercheCommune } from "@/components/RechercheCommune";
 
 export default function Introuvable() {
   return (
     <section className="section">
-      <div className="conteneur prose">
-        <h1>Page introuvable</h1>
-        <p>Cette page n&apos;existe pas ou plus. La commune que vous cherchez n&apos;est peut-être pas encore couverte.</p>
-        <p>
-          <Link href="/">Retour à l&apos;accueil</Link>
-        </p>
+      <div className="conteneur page-erreur">
+        <div>
+          <p className="erreur-code">Erreur 404</p>
+          <h1>Page introuvable</h1>
+          <p className="chapo">La page que vous cherchez n&apos;existe pas ou plus.</p>
+          <p>
+            Si vous avez saisi l&apos;adresse, vérifiez-la. La commune que vous cherchez n&apos;est peut-être pas encore couverte&nbsp;:
+            la plateforme démarre dans l&apos;Aude.
+          </p>
+          <RechercheCommune />
+          <div className="boutons-ligne">
+            <Link href="/" className="bouton bouton-principal">
+              Page d&apos;accueil
+            </Link>
+            <Link href="/regions" className="bouton">
+              Tous les territoires
+            </Link>
+          </div>
+        </div>
+        <div className="page-erreur-picto" aria-hidden>
+          <PictoDonnees />
+        </div>
       </div>
     </section>
   );
