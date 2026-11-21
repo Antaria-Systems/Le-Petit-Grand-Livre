@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { EnTetePage } from "@/components/EnTetePage";
 
-export const metadata: Metadata = { title: "Méthodologie et sources" };
+export const metadata: Metadata = {
+  title: "Méthodologie et sources",
+  description:
+    "D'où viennent les chiffres (OFGL, DGFiP), comment les documents sont demandés aux mairies (CRPA), occultés et vérifiés avant publication.",
+  alternates: { canonical: "/methodologie" },
+};
 
 export default function Methodologie() {
   return (
@@ -12,7 +17,7 @@ export default function Methodologie() {
         titre={<>D&apos;où viennent les chiffres</>}
         chapo={
           <>
-            La plateforme combine deux sources : les données financières déjà publiées en open data, et les documents que
+            La plateforme combine deux sources&nbsp;: les données financières déjà publiées en open data, et les documents que
           nous demandons directement aux mairies.
           </>
         }
@@ -46,11 +51,11 @@ export default function Methodologie() {
               <dt>Comptes des communes</dt>
               <dd>
                 Observatoire des finances et de la gestion publique locales (OFGL), jeu « ofgl-base-communes ». Agrégats
-                calculés à partir des balances comptables de la DGFiP. Nous utilisons le budget principal ; les budgets annexes
+                calculés à partir des balances comptables de la DGFiP. Nous utilisons le budget principal&nbsp;; les budgets annexes
                 (eau, assainissement…) sont importés séparément.
               </dd>
               <dt>Référentiel géographique</dt>
-              <dd>API Découpage administratif (geo.api.gouv.fr) : régions, départements, communes, populations légales.</dd>
+              <dd>API Découpage administratif (geo.api.gouv.fr)&nbsp;: régions, départements, communes, populations légales.</dd>
               <dt>Coordonnées des mairies</dt>
               <dd>Annuaire de l&apos;administration (service-public.fr), utilisé pour adresser les demandes.</dd>
               <dt>Documents des mairies</dt>
@@ -81,7 +86,7 @@ export default function Methodologie() {
               <dd>
                 Chaque commune est comparée à la <strong>médiane nationale</strong> des communes de sa strate de population
                 (par exemple 500 à 1 999 habitants). La médiane est moins sensible que la moyenne aux quelques communes aux
-                comptes atypiques. Un écart n&apos;est pas un jugement : une commune touristique ou centre-bourg a
+                comptes atypiques. Un écart n&apos;est pas un jugement&nbsp;: une commune touristique ou centre-bourg a
                 naturellement des charges différentes.
               </dd>
             </dl>
@@ -116,20 +121,33 @@ export default function Methodologie() {
                 gratuitement (art. L.321-1 et L.324-1).
               </li>
               <li>
-                Les mentions protégées par la loi sont occultées avant publication (art. L.311-6 et L.311-7) : vie privée,
-                coordonnées personnelles, données bancaires, signatures, appréciations portées sur une personne, secret des
-                affaires.
+                Les mentions protégées par la loi sont occultées avant publication (art. L.311-6 et L.311-7)&nbsp;: vie privée,
+                coordonnées personnelles, données bancaires, signatures, appréciations portées sur une personne. Pour le secret
+                des affaires, nous masquons les prix unitaires des bordereaux (BPU, DQE, DPGF) des marchés et accords-cadres, en
+                conservant quantités, désignations et totaux&nbsp;; les montants des devis et factures payés par la commune restent
+                publics.
               </li>
               <li>
-                Les données personnelles sont soumises à l&apos;article L.322-2 et au RGPD. C&apos;est pourquoi les
-                indemnités et les frais sont publiés <strong>par fonction</strong> (maire, adjoints…), sans le nom des
-                élus.
+                Entreprises&nbsp;: la dénomination et la commune sont conservées, y compris pour un entrepreneur individuel&nbsp;; le
+                numéro et la voie de l&apos;adresse d&apos;un entrepreneur individuel (souvent son domicile), ses téléphones et
+                courriels sont masqués. Une mention manuscrite d&apos;identité accompagnant une signature suit le sort de la
+                signature.
+              </li>
+              <li>
+                Les indemnités et les frais sont publiés <strong>par fonction</strong> (maire, adjoints…) plutôt que par nom. Ces
+                informations restent des données personnelles, puisque chaque fonction correspond à une personne identifiable&nbsp;:
+                leur publication repose sur l&apos;intérêt légitime à la transparence de l&apos;action publique (article L.322-2 du
+                CRPA et RGPD). Les délibérations, documents publics (art. L.2121-26 du CGCT), sont reproduites telles quelles, avec
+                le nom des élus.
               </li>
             </ul>
 
             <h2 id="occultation">Comment nous occultons</h2>
             <ol>
-              <li>Le document original est chiffré dès réception et n&apos;est jamais publié.</li>
+              <li>
+                Le document original est chiffré dès son dépôt sur la plateforme, n&apos;est jamais publié et est supprimé cinq ans
+                après la publication de sa version occultée.
+              </li>
               <li>
                 Une détection automatique repère les mentions sensibles (IBAN, numéros de téléphone, adresses
                 électroniques…). Chaque zone est ensuite vérifiée et complétée à la main.

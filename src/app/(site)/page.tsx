@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { IconeFleche, PictoCourrier, PictoDonnees, PictoOccultation } from "@/components/Icones";
 import { RechercheCommune } from "@/components/RechercheCommune";
@@ -6,8 +7,10 @@ import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
 import { centreChemin } from "@/lib/geometrie";
 
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
 export default async function Accueil() {
-  const [regions, nbCommunes, nbDocuments, nbDemandes, nbChantiers, aLaUne] = await Promise.all([
+  const [regions, nbCommunes, nbDocuments, nbDemandes, nbChantiers, aLaUne, nbAvecDocuments] = await Promise.all([
     db.region.findMany({
       orderBy: { nom: "asc" },
       include: { departements: { select: { code: true, nom: true, actif: true, _count: { select: { communes: true } } } } },
@@ -27,10 +30,12 @@ export default async function Accueil() {
         cheminCarte: true,
         presentation: true,
         departement: { select: { code: true, nom: true, carteViewBox: true } },
-        _count: { select: { documents: { where: { statut: "PUBLIE" } }, operations: true } },
+        _count: { select: { documents: { where: { statut: "PUBLIE" } }, operations: true, indemnites: true } },
       },
     }),
+    db.commune.count({ where: { documents: { some: { statut: "PUBLIE" } } } }),
   ]);
+  const accord = (n: number, singulier: string, pluriel: string) => (n > 1 ? pluriel : singulier);
   const departementsActifs = regions.flatMap((r) => r.departements.filter((d) => d.actif));
 
   return (
@@ -59,21 +64,24 @@ export default async function Accueil() {
             </h2>
             <dl>
               <div>
-                <dt>communes couvertes</dt>
+                <dt>
+                  {accord(nbCommunes, "commune couverte", "communes couvertes")}
+                  {nbAvecDocuments > 0 && <span className="hero-precision"> dont {formatEntier(nbAvecDocuments)} avec des documents de la mairie</span>}
+                </dt>
                 <dd className="chiffres">{formatEntier(nbCommunes)}</dd>
               </div>
               <div>
-                <dt>documents de mairies publiés</dt>
+                <dt>{accord(nbDocuments, "document de mairie publié", "documents de mairies publiés")}</dt>
                 <dd className="chiffres">{formatEntier(nbDocuments)}</dd>
               </div>
               {nbDemandes > 0 ? (
                 <div>
-                  <dt>demandes adressées aux mairies</dt>
+                  <dt>{accord(nbDemandes, "demande adressée aux mairies", "demandes adressées aux mairies")}</dt>
                   <dd className="chiffres">{formatEntier(nbDemandes)}</dd>
                 </div>
               ) : (
                 <div>
-                  <dt>chantiers de travaux documentés</dt>
+                  <dt>{accord(nbChantiers, "chantier de travaux documenté", "chantiers de travaux documentés")}</dt>
                   <dd className="chiffres">{formatEntier(nbChantiers)}</dd>
                 </div>
               )}
@@ -135,12 +143,18 @@ export default async function Accueil() {
                     </h3>
                     <p className="carte-une-texte">
                       {c.presentation?.split(/\n/)[0] ||
-                        `Budget et dette depuis 2018, comparaison aux communes de même taille, ${c._count.operations > 0 ? "chantiers reconstitués à partir des factures, " : ""}indemnités des élus et documents de la mairie.`}
+                        `Budget et dette depuis 2018, comparaison aux communes de même taille, ${c._count.operations > 0 ? "chantiers reconstitués à partir des factures, " : ""}${c._count.indemnites > 0 ? "indemnités des élus, " : ""}documents de la mairie.`}
                     </p>
                     <ul className="tags">
                       {c.population !== null && <li className="tag">{formatEntier(c.population)} habitants</li>}
-                      <li className="tag">{formatEntier(c._count.documents)} documents publiés</li>
-                      {c._count.operations > 0 && <li className="tag">{formatEntier(c._count.operations)} chantiers</li>}
+                      <li className="tag">
+                        {formatEntier(c._count.documents)} {accord(c._count.documents, "document publié", "documents publiés")}
+                      </li>
+                      {c._count.operations > 0 && (
+                        <li className="tag">
+                          {formatEntier(c._count.operations)} {accord(c._count.operations, "chantier", "chantiers")}
+                        </li>
+                      )}
                     </ul>
                     <IconeFleche className="carte-fleche" />
                   </div>
@@ -218,7 +232,8 @@ export default async function Accueil() {
               <h3>On occulte, puis on publie</h3>
               <p>
                 Coordonnées personnelles, données bancaires, signatures&nbsp;: tout est masqué et vérifié à la main avant publication.
-                Les élus apparaissent par fonction, jamais par nom.
+                Les indemnités et les frais des élus sont présentés par fonction&nbsp;; les délibérations, documents publics, sont
+                reproduites telles quelles.
               </p>
             </li>
           </ol>
@@ -247,7 +262,7 @@ export default async function Accueil() {
           <div className="encart">
             <h2>Des données ouvertes, réutilisables</h2>
             <p>
-              Chaque fiche se télécharge en CSV. Les données sont publiées sous Licence Ouverte 2.0 et le code de la plateforme sous
+              Les comptes de chaque commune se téléchargent en CSV. Les données sont publiées sous Licence Ouverte 2.0 et le code de la plateforme sous
               licence AGPL&nbsp;: réutilisez-les librement, en citant la source.
             </p>
             <Link prefetch={false} className="bouton bouton-secondaire" href="/methodologie#sources">

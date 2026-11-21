@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FilAriane } from "@/components/FilAriane";
 import { formatEntier } from "@/lib/format";
 import { centreChemin as centre } from "@/lib/geometrie";
 import { libelleStrate } from "@/lib/strates";
@@ -22,30 +23,23 @@ type Props = {
   region: { code: string; nom: string };
   carte: { viewBox: string; chemin: string } | null;
   nbDocuments: number;
+  exercices?: number[];
 };
 
-export function EnteteCommune({ commune, departement, region, carte, nbDocuments }: Props) {
+export function EnteteCommune({ commune, departement, region, carte, nbDocuments, exercices = [] }: Props) {
   const site = commune.mairieSite?.replace(/^https?:\/\//, "").replace(/\/$/, "");
   return (
     <div className="fiche-bandeau">
       <div className="conteneur fiche-bandeau-grille">
         <div className="fiche-identite">
-          <nav className="fil-ariane" aria-label="Fil d'Ariane">
-            <ol>
-              <li>
-                <Link prefetch={false} href="/">Accueil</Link>
-              </li>
-              <li>
-                <Link prefetch={false} href={`/regions/${region.code}`}>{region.nom}</Link>
-              </li>
-              <li>
-                <Link prefetch={false} href={`/departements/${departement.code}`}>{departement.nom}</Link>
-              </li>
-              <li>
-                <span aria-current="page">{commune.nom}</span>
-              </li>
-            </ol>
-          </nav>
+          <FilAriane
+            elements={[
+              { libelle: "Territoires", href: "/regions" },
+              { libelle: region.nom, href: `/regions/${region.code}` },
+              { libelle: departement.nom, href: `/departements/${departement.code}` },
+              { libelle: commune.nom },
+            ]}
+          />
           <p className="surtitre">
             Commune · {departement.nom} ({departement.code})
           </p>
@@ -87,7 +81,7 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
           </dl>
           <p className="fiche-documents-compteur">
             <span className="point-vert" aria-hidden /> {nbDocuments} document{nbDocuments > 1 ? "s" : ""} publié{nbDocuments > 1 ? "s" : ""} ·
-            comptes OFGL 2018 à aujourd&apos;hui
+            {exercices.length ? `comptes OFGL ${exercices[0]} à ${exercices[exercices.length - 1]}` : "pas de comptes OFGL publiés"}
           </p>
         </div>
 
@@ -123,6 +117,7 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
                 {commune.mairieSite && (
                   <a href={commune.mairieSite} target="_blank" rel="noopener noreferrer">
                     {site}
+                    <span className="sr-only"> (site de la mairie, nouvel onglet)</span>
                   </a>
                 )}
               </p>

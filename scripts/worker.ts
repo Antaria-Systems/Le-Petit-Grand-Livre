@@ -12,6 +12,7 @@
  */
 import "dotenv/config";
 import { writeFile } from "node:fs/promises";
+import { purgerOriginaux } from "../src/lib/conservation";
 import { db } from "../src/lib/db";
 import { traiterEnvoisProgrammes } from "../src/lib/envoi-demande";
 import { importerDepartement } from "../src/lib/imports";
@@ -27,6 +28,8 @@ const TENTATIVES_MAX = 3;
 let arret = false;
 process.on("SIGTERM", () => (arret = true));
 process.on("SIGINT", () => (arret = true));
+// Une promesse rejetée sans gestionnaire ne doit pas arrêter le worker (envois programmés).
+process.on("unhandledRejection", (e) => console.error("[worker] promesse rejetée :", e));
 
 /** Battement de cœur : affiché dans l'admin, et fichier lu par le healthcheck Docker. */
 async function battement(boucle: string) {
@@ -93,6 +96,15 @@ async function libererTachesInterrompues() {
   }
 }
 
+/* ───────────── Conservation : purge quotidienne des originaux ───────────── */
+
+let dernierePurge = 0;
+async function purgeQuotidienne() {
+  if (Date.now() - dernierePurge < 24 * 3600_000) return;
+  dernierePurge = Date.now();
+  await purgerOriginaux().catch((e) => console.error("[conservation]", e instanceof Error ? e.message : e));
+}
+
 /* ───────────── Documents ───────────── */
 
 async function tour(): Promise<boolean> {
@@ -150,17 +162,26 @@ async function tour(): Promise<boolean> {
 async function main() {
   console.log(`Worker démarré (rôle : ${ROLE})`);
   if (ENVOIS) {
-    await libererTachesInterrompues();
+    await libererTachesInterrompues().catch((e) => console.error("[worker] tâches interrompues :", e instanceof Error ? e.message : e));
     await boucleEnvois();
     setInterval(boucleEnvois, INTERVALLE_ENVOIS_MS);
   }
   while (!arret) {
     let travaille = false;
-    if (DOCUMENTS) {
-      travaille = await tour();
-      await battement("documents");
+    try {
+      if (DOCUMENTS) {
+        travaille = await tour();
+        await battement("documents");
+        if (!travaille) await purgeQuotidienne();
+      }
+      if (!travaille && ENVOIS) travaille = await tache();
+    } catch (e) {
+      // Erreur passagère (base injoignable, DNS…) : on attend et on recommence, sans arrêter le
+      // processus (la boucle des envois programmés continue de tourner de son côté).
+      console.error("[worker] erreur, nouvel essai dans 15 s :", e instanceof Error ? e.message : e);
+      await new Promise((r) => setTimeout(r, 15_000));
+      continue;
     }
-    if (!travaille && ENVOIS) travaille = await tache();
     if (!travaille) await new Promise((r) => setTimeout(r, PAUSE_MS));
   }
   // Laisse un envoi en cours se terminer proprement.

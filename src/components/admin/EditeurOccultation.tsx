@@ -604,6 +604,32 @@ export function EditeurOccultation({
     }
   }
 
+  /** Erreur de dépôt : déplacer vers une autre commune (code INSEE). */
+  async function deplacer(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const code = String(new FormData(e.currentTarget).get("code") ?? "").trim().toUpperCase();
+    if (!/^[0-9AB]{5}$/.test(code)) return signaler("erreur", "Code INSEE à 5 caractères attendu (par exemple 11199).");
+    if (!window.confirm(`Déplacer ce document vers la commune ${code} ? Son chantier et sa demande seront détachés, et la version publique devra être régénérée.`)) return;
+    try {
+      const r = await appel(`/api/admin/documents/${doc.id}`, "PATCH", { communeCode: code });
+      signaler("ok", `Document déplacé vers ${r.commune}.`);
+      router.refresh();
+    } catch (err) {
+      signaler("erreur", (err as Error).message);
+    }
+  }
+
+  /** Erreur de dépôt : suppression définitive (document non publié). */
+  async function supprimerDocument() {
+    if (!window.confirm("Supprimer DÉFINITIVEMENT ce document (original chiffré, aperçus, zones) ? Cette action est irréversible.")) return;
+    try {
+      await appel(`/api/admin/documents/${doc.id}`, "DELETE");
+      router.push(navigation.suivantId ? `/admin/documents/${navigation.suivantId}` : "/admin/documents");
+    } catch (err) {
+      signaler("erreur", (err as Error).message);
+    }
+  }
+
   async function enregistrerMeta(e: React.FormEvent) {
     e.preventDefault();
     await sauverMeta();
@@ -972,6 +998,28 @@ export function EditeurOccultation({
             )}
           </div>
         </form>
+
+        <details className="carte" style={{ marginTop: 12 }}>
+          <summary>
+            <strong>Corriger une erreur de dépôt</strong>
+          </summary>
+          <form onSubmit={deplacer} className="champ" style={{ marginTop: 12 }}>
+            <label htmlFor="deplacer-code">Déplacer vers la commune (code INSEE)</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input id="deplacer-code" name="code" inputMode="numeric" maxLength={5} placeholder="11199" style={{ maxWidth: 120 }} />
+              <button type="submit" className="bouton">
+                Déplacer
+              </button>
+            </div>
+          </form>
+          {doc.statut !== "PUBLIE" && (
+            <p style={{ marginTop: 12 }}>
+              <button type="button" className="bouton" onClick={supprimerDocument} disabled={!!doc.travail}>
+                Supprimer définitivement ce document
+              </button>
+            </p>
+          )}
+        </details>
       </aside>
     </div>
   );

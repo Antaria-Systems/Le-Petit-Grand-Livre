@@ -8,7 +8,10 @@ export const site = {
     siren: process.env.ASSO_SIREN ?? "",
     adresse: process.env.ASSO_ADRESSE ?? "",
     email: process.env.ASSO_EMAIL ?? "",
+    telephone: process.env.ASSO_TELEPHONE ?? "",
   },
+  /** Dépôt public du code source (licence AGPL) : lien affiché en pied de page s'il est renseigné. */
+  codeSource: process.env.SOURCE_URL ?? "",
   directeurPublication: process.env.DIRECTEUR_PUBLICATION ?? "",
   hebergeur: process.env.HEBERGEUR ?? "",
 };

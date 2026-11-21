@@ -45,7 +45,7 @@ export default async function Connexion({ searchParams }: Props) {
               {error === "AccessDenied" && (
                 <p className="badge badge-alerte" style={{ whiteSpace: "normal" }}>
                   Ce compte n&apos;est pas autorisé à administrer la plateforme. Un administrateur doit l&apos;ajouter au groupe
-                  d&apos;administration dans Authentik ; reconnectez-vous ensuite.
+                  d&apos;administration dans Authentik&nbsp;; reconnectez-vous ensuite.
                 </p>
               )}
               {error && error !== "AccessDenied" && (

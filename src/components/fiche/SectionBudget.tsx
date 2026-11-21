@@ -67,9 +67,9 @@ function Composition({ titre, sousTitre, liste, total, description }: { titre: s
         <tbody>
           {liste.filter((p) => p.valeur > 0).map((p) => (
             <tr key={p.libelle}>
-              <td>
+              <th scope="row">
                 <span className="cle-carre" style={{ background: p.couleur }} aria-hidden /> {p.libelle}
-              </td>
+              </th>
               <td className="nombre">{formatEuros(p.valeur)}</td>
               <td className="nombre discret">{total ? formatPourcentage(p.valeur / total) : "—"}</td>
             </tr>
@@ -115,7 +115,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
         id="titre-budget"
         surtitre="Comptes de la commune"
         titre={`Budget ${annee}`}
-        description="Budget principal, d'après les comptes publiés par l'OFGL. Le fonctionnement couvre les dépenses courantes ; l'investissement, les travaux et équipements."
+        description={"Budget principal, d'après les comptes publiés par l'OFGL. Le fonctionnement couvre les dépenses courantes\u00a0; l'investissement, les travaux et équipements. k€\u00a0: milliers d'euros, M€\u00a0: millions d'euros."}
       >
         <nav className="selecteur-annee" aria-label="Choisir l'exercice">
           {annees.map((y) => (
@@ -205,6 +205,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
         </p>
         <div className="tableau-defilant">
           <table className="table-comparaison">
+            <caption className="sr-only">Comparaison avec les communes de même taille, {annee}, en euros par habitant</caption>
             <thead>
               <tr>
                 <th>Indicateur</th>
@@ -216,10 +217,14 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
             <tbody>
               {lignesComparaison.map((l) => (
                 <tr key={l.agregat}>
-                  <td>{l.libelle}</td>
-                  <td className="nombre">{l.val !== null ? formatParHabitant(l.val) : "—"}</td>
-                  <td className="nombre discret">{l.med !== null ? formatParHabitant(l.med) : "—"}</td>
-                  <td className="col-ecart">
+                  <th scope="row">{l.libelle}</th>
+                  <td className="nombre" data-libelle={nom}>
+                    {l.val !== null ? formatParHabitant(l.val) : "—"}
+                  </td>
+                  <td className="nombre discret" data-libelle="Médiane">
+                    {l.med !== null ? formatParHabitant(l.med) : "—"}
+                  </td>
+                  <td className="col-ecart" data-libelle="Écart">
                     {l.ecart === null ? (
                       "—"
                     ) : (
@@ -233,6 +238,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
                         <span className="chiffres">
                           {l.ecart > 0 ? "+" : l.ecart < 0 ? "−" : ""}
                           {formatPourcentage(Math.abs(l.ecart))}
+                          <span className="sr-only">{l.ecart > 0 ? " au-dessus de la médiane" : l.ecart < 0 ? " en dessous de la médiane" : ""}</span>
                         </span>
                       </div>
                     )}

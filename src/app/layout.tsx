@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   description:
     "Budgets, indemnités des élus, travaux : les documents publics des communes, obtenus au titre du droit d'accès aux documents administratifs (CRPA) et rendus lisibles.",
   metadataBase: new URL(site.url),
+  openGraph: { siteName: site.nom, locale: "fr_FR", type: "website" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

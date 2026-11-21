@@ -74,6 +74,7 @@ export function GraphiqueLignes({ etiquettes, series, format, description, haute
         <svg
           width={largeur}
           height={hauteur}
+          viewBox={`0 0 ${largeur} ${hauteur}`}
           role="img"
           aria-label={description}
           tabIndex={0}

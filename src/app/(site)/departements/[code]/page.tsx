@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { EnTetePage } from "@/components/EnTetePage";
 import { FiltreCommunes } from "@/components/FiltreCommunes";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
+import { deDepartement } from "@/lib/lieux";
 
 type Props = { params: Promise<{ code: string }> };
 
-async function charger(code: string) {
+// cache() : une seule requête pour les métadonnées et la page.
+const charger = cache(async (code: string) => {
   return db.departement.findUnique({
     where: { code },
     include: {
@@ -15,11 +19,20 @@ async function charger(code: string) {
       communes: { orderBy: { nomRecherche: "asc" }, select: { nom: true, slug: true, population: true, nomRecherche: true } },
     },
   });
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const d = await charger((await params).code);
-  return { title: d ? `Communes du département ${d.nom} (${d.code})` : "Département introuvable" };
+  if (!d) return { title: "Département introuvable", robots: { index: false } };
+  return {
+    title: `Communes ${deDepartement(d.nom)} (${d.code}) : finances et documents`,
+    description: d.actif
+      ? `Budget, dette, travaux et documents des ${formatEntier(d.communes.length)} communes ${deDepartement(d.nom)} : comptes publics et pièces obtenues auprès des mairies.`
+      : `Les communes ${deDepartement(d.nom)} ne sont pas encore couvertes par la plateforme.`,
+    alternates: { canonical: `/departements/${d.code}` },
+    // Département pas encore couvert : page presque vide, non indexée.
+    ...(d.actif ? {} : { robots: { index: false, follow: true } }),
+  };
 }
 
 export default async function PageDepartement({ params }: Props) {
@@ -40,7 +53,7 @@ export default async function PageDepartement({ params }: Props) {
         chapo={
           dep.actif
             ? `${formatEntier(dep.communes.length)} communes et ${formatEntier(population)} habitants. Choisissez une commune pour consulter son budget, ses travaux et ses documents.`
-            : "Ce département n'est pas encore couvert."
+            : `Les communes ${deDepartement(dep.nom)} ne sont pas encore couvertes par la plateforme.`
         }
         cote={
           dep.carteViewBox ? (
@@ -56,10 +69,22 @@ export default async function PageDepartement({ params }: Props) {
             <FiltreCommunes communes={dep.communes.map((c) => ({ nom: c.nom, slug: c.slug, population: c.population, cle: c.nomRecherche }))} />
           ) : (
             <div className="vide">
-              <strong>Ce département n&apos;est pas encore couvert.</strong>
+              <strong>En attendant</strong>
               <p>
-                La plateforme démarre dans l&apos;Aude et s&apos;étendra progressivement. Les comptes de toutes les communes sont déjà
-                publiés en open data par l&apos;OFGL&nbsp;: ils seront intégrés ici au fil de l&apos;extension.
+                La plateforme démarre dans l&apos;Aude et s&apos;étendra département par département. Les comptes de toutes les communes
+                sont déjà publiés en open data par l&apos;OFGL&nbsp;:{" "}
+                <a href={`https://data.ofgl.fr/explore/dataset/ofgl-base-communes/table/?refine.dep_code=${dep.code}`}>
+                  consulter les comptes des communes {deDepartement(dep.nom)} sur data.ofgl.fr
+                </a>
+                .
+              </p>
+              <p className="boutons-ligne">
+                <Link prefetch={false} href="/departements/11" className="bouton">
+                  Voir les communes de l&apos;Aude
+                </Link>
+                <Link prefetch={false} href="/recherche" className="bouton">
+                  Rechercher une commune
+                </Link>
               </p>
             </div>
           )}

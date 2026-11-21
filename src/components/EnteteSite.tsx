@@ -21,9 +21,23 @@ export function EnteteSite({ nom }: { nom: string }) {
   const boutonMenu = useRef<HTMLButtonElement>(null);
   const boutonFermer = useRef<HTMLButtonElement>(null);
 
+  // Lien d'évitement « Menu » (#menu-principal) : sur mobile, il ouvre le menu.
+  useEffect(() => {
+    const ouvrirSiAncre = () => {
+      if (window.location.hash === "#menu-principal" && window.matchMedia("(max-width: 991.98px)").matches) setOuvert(true);
+    };
+    window.addEventListener("hashchange", ouvrirSiAncre);
+    return () => window.removeEventListener("hashchange", ouvrirSiAncre);
+  }, []);
+
   useEffect(() => {
     if (!ouvert) return;
     document.body.classList.add("menu-ouvert");
+    // Fenêtre modale : tout ce qui est sous le menu devient inerte (clavier et lecteurs d'écran).
+    const dessous = [document.getElementById("contenu"), document.getElementById("pied"), document.querySelector(".entete-haut"), document.querySelector(".liens-evitement")].filter(
+      (x): x is HTMLElement => x instanceof HTMLElement,
+    );
+    for (const el of dessous) el.inert = true;
     boutonFermer.current?.focus();
     const echap = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -33,6 +47,7 @@ export function EnteteSite({ nom }: { nom: string }) {
     };
     document.addEventListener("keydown", echap);
     return () => {
+      for (const el of dessous) el.inert = false;
       document.body.classList.remove("menu-ouvert");
       document.removeEventListener("keydown", echap);
     };
@@ -80,6 +95,7 @@ export function EnteteSite({ nom }: { nom: string }) {
       <div
         id="menu-principal"
         className={`entete-menu${ouvert ? " ouvert" : ""}`}
+        {...(ouvert ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" } : {})}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a")) setOuvert(false);
         }}

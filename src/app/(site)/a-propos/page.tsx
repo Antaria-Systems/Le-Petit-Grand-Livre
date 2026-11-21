@@ -3,7 +3,11 @@ import { EnTetePage } from "@/components/EnTetePage";
 import { ACompleter } from "@/components/ACompleter";
 import { site } from "@/lib/config";
 
-export const metadata: Metadata = { title: "À propos" };
+export const metadata: Metadata = {
+  title: "À propos",
+  description: "Le Petit Grand Livre : une plateforme associative et indépendante pour rendre lisibles les finances des communes.",
+  alternates: { canonical: "/a-propos" },
+};
 
 export default function APropos() {
   return (
@@ -42,7 +46,7 @@ export default function APropos() {
           <div className="prose">
             <p>
               {site.nom} est né d&apos;une demande de documents adressée à la mairie d&apos;un village de l&apos;Aude. Le
-              principe est simple : demander ces documents à toutes les mairies, dans le respect du droit d&apos;accès
+              principe est simple&nbsp;: demander ces documents à toutes les mairies, dans le respect du droit d&apos;accès
               prévu par le CRPA, puis les publier sous une forme que chacun peut comprendre.
             </p>
 
@@ -56,15 +60,15 @@ export default function APropos() {
             <h2 id="qui-sommes-nous">Qui sommes-nous</h2>
             <p>
               La plateforme est éditée par l&apos;association <ACompleter valeur={site.asso.nom} libelle="nom de l'association" />.
-              Elle est indépendante : elle n&apos;est rattachée ni à l&apos;État, ni à une collectivité, ni à un parti politique.
+              Elle est indépendante&nbsp;: elle n&apos;est rattachée ni à l&apos;État, ni à une collectivité, ni à un parti politique.
             </p>
 
             <h2 id="notre-ligne">Notre ligne</h2>
             <ul>
               <li>Des faits et des sources, pas de commentaire sur les choix des élus.</li>
               <li>Une demande par an et par commune, pour ne pas surcharger les secrétariats de mairie.</li>
-              <li>Des données personnelles protégées : occultation systématique, publication par fonction.</li>
-              <li>Tout est ouvert : code sous licence AGPL-3.0, données sous Licence Ouverte 2.0.</li>
+              <li>Des données personnelles protégées&nbsp;: occultation systématique, indemnités et frais présentés par fonction.</li>
+              <li>Tout est ouvert&nbsp;: code sous licence AGPL-3.0, données sous Licence Ouverte 2.0.</li>
             </ul>
 
             <h2 id="contact">Contact</h2>

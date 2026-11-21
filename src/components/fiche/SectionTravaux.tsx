@@ -63,7 +63,7 @@ export function SectionTravaux({ chantiers, totaux }: Props) {
                 <li>
                   <strong>Voté ou commandé</strong> : montant décidé par le conseil municipal ou porté sur les bons de commande.
                 </li>
-                <li>Montants relevés sur les documents ; chaque pièce est consultable pour vérification.</li>
+                <li>Montants relevés sur les documents&nbsp;; chaque pièce est consultable pour vérification.</li>
               </ul>
             </div>
           </div>

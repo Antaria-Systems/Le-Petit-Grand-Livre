@@ -50,7 +50,7 @@ export function resumeBudget(nom: string, annee: number, ex: Exercice, ref: Ref,
     const c = comparaison(dette.parHabitant, ref?.get(A.encoursDette)?.mediane);
     const annees = eb && eb.montant > 0 ? dette.montant / eb.montant : null;
     phrases.push(
-      `Sa dette s'élève à ${formatEurosCompact(dette.montant)} au 31 décembre${dette.parHabitant ? ` (${parHab(dette.parHabitant)}${c ? `, ${c}` : ""})` : ""}${
+      `La dette de son budget principal s'élève à ${formatEurosCompact(dette.montant)} au 31 décembre${dette.parHabitant ? ` (${parHab(dette.parHabitant)}${c ? `, ${c}` : ""})` : ""}${
         annees !== null ? ` ; il faudrait ${annees.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} année${annees >= 2 ? "s" : ""} d'épargne brute pour la rembourser entièrement` : ""
       }.`,
     );

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import type { ResultatRecherche } from "@/app/api/communes/route";
+import type { ResultatRecherche } from "@/lib/recherche";
 import { formatEntier } from "@/lib/format";
 import { IconeRecherche } from "./Icones";
 
@@ -12,12 +12,14 @@ import { IconeRecherche } from "./Icones";
  */
 export function RechercheCommune({
   variante = "grande",
+  valeurInitiale = "",
 }: {
   variante?: "grande" | "compacte";
+  valeurInitiale?: string;
 }) {
   const router = useRouter();
   const id = useId();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(valeurInitiale);
   const [resultats, setResultats] = useState<ResultatRecherche[]>([]);
   const [ouvert, setOuvert] = useState(false);
   const [actif, setActif] = useState(-1);
@@ -67,6 +69,7 @@ export function RechercheCommune({
     e.preventDefault();
     const r = resultats[actif >= 0 ? actif : 0];
     if (r && q.trim().length >= 2) aller(r);
+    else if (q.trim().length >= 2) router.push(`/recherche?q=${encodeURIComponent(q.trim())}`);
     else setOuvert(true);
   }
 
@@ -75,6 +78,7 @@ export function RechercheCommune({
   return (
     <form
       role="search"
+      action="/recherche"
       className={`recherche recherche-${variante}`}
       onSubmit={soumettre}
     >
@@ -93,6 +97,7 @@ export function RechercheCommune({
         <input
           id={`${id}-champ`}
           className="recherche-champ"
+          name="q"
           type="search"
           aria-describedby={grande ? `${id}-aide` : undefined}
           placeholder={
@@ -127,8 +132,9 @@ export function RechercheCommune({
           {resultats.length === 0 ? (
             <li role="option" aria-selected={false} aria-disabled>
               <span className="discret">
-                Aucune commune couverte ne correspond. La plateforme couvre pour
-                l&apos;instant l&apos;Aude.
+                Aucune commune ne correspond à « {q.trim()} ». Vérifiez
+                l&apos;orthographe ou essayez le code postal (la plateforme couvre
+                pour l&apos;instant l&apos;Aude).
               </span>
             </li>
           ) : (

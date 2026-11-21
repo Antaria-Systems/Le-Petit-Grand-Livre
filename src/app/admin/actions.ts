@@ -10,7 +10,7 @@ import { z } from "zod";
 import type { StatutDemande } from "@/generated/prisma/enums";
 import { adminCourant } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { courrierDemande, delais, formatJourParis, jourParis, objetDemande, PIECES, type Piece } from "@/lib/demande";
+import { courrierDemande, delais, formatJourParis, jourParis, objetDemande, PIECES, piecesParDefaut, type Piece } from "@/lib/demande";
 import { EnvoiDejaEnCours, EnvoiIncertain, envoyerDemandeMaintenant, messageErreurEnvoi } from "@/lib/envoi-demande";
 import { depuisHeureParis, formatDateHeure, formatDateHeureCourte } from "@/lib/heure";
 import { expediteur, transporteur } from "@/lib/mail";
@@ -193,6 +193,9 @@ export async function enregistrerIndemnite(_e: Etat, f: FormData): Promise<Etat>
   try {
     await exigerAdmin();
     const { id, communeCode, montantBrutAnnuel, ...data } = schemaIndemnite.parse(champs(f));
+    if (data.documentId && !(await db.document.findFirst({ where: { id: data.documentId, communeCode }, select: { id: true } }))) {
+      return { erreur: "Le document justificatif choisi n'appartient pas à cette commune." };
+    }
     const valeurs = { ...data, montantBrutAnnuel: montantBrutAnnuel! };
     if (id) await db.indemniteFonction.update({ where: { id, communeCode }, data: valeurs });
     else await db.indemniteFonction.create({ data: { ...valeurs, communeCode } });
@@ -225,6 +228,9 @@ export async function enregistrerFrais(_e: Etat, f: FormData): Promise<Etat> {
   try {
     await exigerAdmin();
     const { id, communeCode, montant, ...data } = schemaFrais.parse(champs(f));
+    if (data.documentId && !(await db.document.findFirst({ where: { id: data.documentId, communeCode }, select: { id: true } }))) {
+      return { erreur: "Le document justificatif choisi n'appartient pas à cette commune." };
+    }
     const valeurs = { ...data, montant: montant! };
     if (id) await db.fraisFonction.update({ where: { id, communeCode }, data: valeurs });
     else await db.fraisFonction.create({ data: { ...valeurs, communeCode } });
@@ -512,4 +518,62 @@ export const rattacherDocumentsDemande = action(async (f) => {
   ]);
   refresh();
   return { ok: `${documents.length} document${documents.length > 1 ? "s" : ""} rattaché${documents.length > 1 ? "s" : ""} à la demande.` };
+});
+
+/* ───────────── Demandes en lot (vue département) ───────────── */
+
+/** Prépare un brouillon pour chaque commune du département qui a un courriel et pas encore de demande pour l'année. */
+export const preparerDemandesLot = action(async (f) => {
+  const dep = z.string().regex(/^[0-9AB]{2,3}$/).parse(f.get("departement"));
+  const annee = z.coerce.number().int().min(2000).max(2100).parse(f.get("annee"));
+  const exercice = z.coerce.number().int().min(2000).max(2100).parse(f.get("exercice"));
+  const communes = await db.commune.findMany({
+    where: { departementCode: dep, mairieEmail: { not: null }, demandes: { none: { annee } } },
+    select: { code: true, nom: true, population: true, mairieEmail: true },
+  });
+  const valides = communes.filter((c) => z.string().email().safeParse(c.mairieEmail).success);
+  if (valides.length === 0) return { erreur: `Aucune commune à préparer : toutes ont déjà une demande ${annee} ou n'ont pas de courriel valide.` };
+  const r = await db.demande.createMany({
+    data: valides.map((c) => ({
+      communeCode: c.code,
+      annee,
+      objet: objetDemande(c.nom, exercice),
+      corps: courrierDemande(c.nom, exercice, piecesParDefaut(c.population)),
+      destinataire: c.mairieEmail!,
+      statut: "BROUILLON" as const,
+    })),
+    skipDuplicates: true,
+  });
+  refresh();
+  return { ok: `${r.count} brouillon${r.count > 1 ? "s" : ""} préparé${r.count > 1 ? "s" : ""} (pièces ciblées pour les communes de 3 500 habitants et plus). Relisez-les avant de programmer l'envoi.` };
+});
+
+/** Programme l'envoi des brouillons non programmés du département, étalés (ménage le relais et la délivrabilité). */
+export const programmerDemandesLot = action(async (f) => {
+  if (f.get("confirmation") !== "oui") return { erreur: "Cochez la case de confirmation." };
+  const dep = z.string().regex(/^[0-9AB]{2,3}$/).parse(f.get("departement"));
+  const annee = z.coerce.number().int().min(2000).max(2100).parse(f.get("annee"));
+  const parHeure = z.coerce.number().int().min(1).max(60).parse(f.get("parHeure"));
+  const debut = depuisHeureParis(String(f.get("debut") ?? ""));
+  if (!debut) return { erreur: "Indiquez la date et l'heure du premier envoi." };
+  if (debut.getTime() < Date.now() + 60_000) return { erreur: "Le premier envoi doit être dans le futur." };
+  const brouillons = await db.demande.findMany({
+    where: { annee, statut: "BROUILLON", envoiProgrammeLe: null, envoiEnCoursLe: null, erreurEnvoi: null, commune: { departementCode: dep } },
+    select: { id: true, destinataire: true, commune: { select: { population: true } } },
+    orderBy: { commune: { nomRecherche: "asc" } },
+  });
+  const envoyables = brouillons.filter((d) => z.string().email().safeParse(d.destinataire).success);
+  if (envoyables.length === 0) return { erreur: "Aucun brouillon à programmer (déjà programmés, en erreur, ou sans destinataire valide)." };
+  const pas = Math.round(3600_000 / parHeure);
+  await db.$transaction(
+    envoyables.map((d, i) =>
+      db.demande.updateMany({
+        where: { id: d.id, statut: "BROUILLON", envoiProgrammeLe: null, envoiEnCoursLe: null },
+        data: { envoiProgrammeLe: new Date(debut.getTime() + i * pas), envoiCopieCachee: true, erreurEnvoi: null },
+      }),
+    ),
+  );
+  const fin = new Date(debut.getTime() + (envoyables.length - 1) * pas);
+  refresh();
+  return { ok: `${envoyables.length} envoi${envoyables.length > 1 ? "s" : ""} programmé${envoyables.length > 1 ? "s" : ""} du ${formatDateHeure(debut)} au ${formatDateHeure(fin)} (heure de Paris).` };
 });

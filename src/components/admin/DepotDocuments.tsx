@@ -172,7 +172,14 @@ export function DepotDocuments({ communes, communeInitiale }: { communes: { code
               <div className="envoi-ligne">
                 <span className="envoi-nom">{e.fichier.name}</span>
                 <span className="discret petit chiffres">{taille(e.fichier.size)}</span>
-                {e.etat === "attente" && <span className="badge">En attente</span>}
+                {e.etat === "attente" && (
+                  <>
+                    <span className="badge">En attente</span>
+                    <button type="button" className="lien-bouton petit" onClick={() => setEnvois((es) => es.filter((x) => x.id !== e.id))} disabled={enCours}>
+                      Retirer
+                    </button>
+                  </>
+                )}
                 {e.etat === "envoi" && (
                   <progress max={1} value={e.progression} aria-label={`Envoi de ${e.fichier.name}`}>
                     {Math.round(e.progression * 100)} %
@@ -186,6 +193,11 @@ export function DepotDocuments({ communes, communeInitiale }: { communes: { code
                 {e.etat === "erreur" && <span className="badge badge-alerte">Échec</span>}
               </div>
               {e.erreur && <p className="petit" style={{ color: "var(--st-alerte-ink)", margin: "4px 0 0" }}>{e.erreur}</p>}
+              {e.resultats.length === 1 && e.resultats[0].statut === "importe" && e.resultats[0].documentId && (
+                <p className="petit" style={{ margin: "4px 0 0" }}>
+                  <Link href={`/admin/documents/${e.resultats[0].documentId}`}>Ouvrir « {e.resultats[0].titre} »</Link> (analyse en cours, quelques secondes par page)
+                </p>
+              )}
               {e.resultats.length > 1 || (e.resultats.length === 1 && e.resultats[0].statut !== "importe") ? (
                 <details className="donnees" open={e.resultats.some((r) => r.statut !== "importe" && r.statut !== "doublon")}>
                   <summary>Détail des {e.resultats.length} fichier(s)</summary>
@@ -208,12 +220,12 @@ export function DepotDocuments({ communes, communeInitiale }: { communes: { code
 
       <div className="boutons" style={{ marginTop: 16, alignItems: "center" }}>
         <button type="button" className="bouton bouton-principal" onClick={lancer} disabled={enCours || enAttente === 0}>
-          {enCours ? "Envoi en cours…" : `Envoyer ${enAttente || ""} fichier${enAttente > 1 ? "s" : ""}`}
+          {enCours ? "Envoi en cours…" : enAttente === 0 ? "Choisissez des fichiers" : `Envoyer ${enAttente} fichier${enAttente > 1 ? "s" : ""}`}
         </button>
         {tous.length > 0 && !enCours && (
           <span className="petit">
             {nb("importe")} importé(s) · {nb("doublon")} doublon(s) · {nb("ignore")} ignoré(s)
-            {nb("erreur") ? ` · ${nb("erreur")} erreur(s)` : ""} — <Link href="/admin/documents?statut=RECU">suivre l&apos;analyse</Link>
+            {nb("erreur") ? ` · ${nb("erreur")} erreur(s)` : ""} — <Link href="/admin/documents?statut=A_VERIFIER">documents à vérifier</Link>
           </span>
         )}
       </div>

@@ -1,37 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "@/lib/db";
-import { normaliser } from "@/lib/texte";
+import { rechercherCommunes, type ResultatRecherche } from "@/lib/recherche";
 
-export type ResultatRecherche = { nom: string; slug: string; departement: string; codesPostaux: string[]; population: number | null };
+export type { ResultatRecherche };
+
+/* Limitation simple par adresse IP (API publique interrogée à chaque frappe). */
+const fenetres = new Map<string, { debut: number; n: number }>();
+function tropDeRequetes(ip: string): boolean {
+  const maintenant = Date.now();
+  const f = fenetres.get(ip);
+  if (!f || maintenant - f.debut > 60_000) {
+    fenetres.set(ip, { debut: maintenant, n: 1 });
+    if (fenetres.size > 10_000) fenetres.clear();
+    return false;
+  }
+  return ++f.n > 120;
+}
 
 export async function GET(req: NextRequest) {
-  const brut = req.nextUrl.searchParams.get("q") ?? "";
-  const q = normaliser(brut).slice(0, 60);
-  if (q.length < 2) return NextResponse.json([]);
-
-  const parCodePostal = /^\d{5}$/.test(q.replace(/ /g, ""));
-  const communes = await db.commune.findMany({
-    where: parCodePostal
-      ? { OR: [{ codesPostaux: { has: q.replace(/ /g, "") } }, { code: q.replace(/ /g, "") }] }
-      : { nomRecherche: { contains: q } },
-    select: { nom: true, slug: true, nomRecherche: true, codesPostaux: true, population: true, departement: { select: { nom: true, code: true } } },
-    take: 60,
-  });
-
-  const resultats: ResultatRecherche[] = communes
-    .sort((a, b) => {
-      const pa = a.nomRecherche.startsWith(q) ? 0 : 1;
-      const pb = b.nomRecherche.startsWith(q) ? 0 : 1;
-      return pa - pb || (b.population ?? 0) - (a.population ?? 0);
-    })
-    .slice(0, 8)
-    .map((c) => ({
-      nom: c.nom,
-      slug: c.slug,
-      departement: `${c.departement.nom} (${c.departement.code})`,
-      codesPostaux: c.codesPostaux,
-      population: c.population,
-    }));
-
+  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "inconnue";
+  if (tropDeRequetes(ip)) return NextResponse.json([], { status: 429, headers: { "Retry-After": "60" } });
+  const resultats = await rechercherCommunes(req.nextUrl.searchParams.get("q") ?? "");
   return NextResponse.json(resultats, { headers: { "Cache-Control": "public, max-age=300" } });
 }

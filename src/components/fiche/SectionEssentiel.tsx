@@ -10,7 +10,7 @@ type Props = {
   annee: number;
   finances: FinancesCommune;
   refs: References;
-  travaux: { facture: number; nbChantiers: number; anneeMin: number | null; anneeMax: number | null };
+  travaux: { facture: number; nbChantiers: number; nbChantiersFactures: number; anneeMinFactures: number | null; anneeMaxFactures: number | null };
 };
 
 /** Mini-courbe de tendance (statique) : la série en gris, l'année affichée en couleur. */
@@ -70,7 +70,10 @@ export function SectionEssentiel({ nom, strate, annee, finances, refs, travaux }
     {
       agregat: A.encoursDette,
       libelle: "Dette au 31 décembre",
-      aide: capacite !== null ? `${capacite.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} années d'épargne brute pour la rembourser` : "capital restant dû",
+      aide:
+        capacite !== null
+          ? `${capacite.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} ${capacite < 2 ? "année" : "années"} d'épargne brute pour la rembourser (budget principal)`
+          : "capital restant dû (budget principal)",
     },
   ];
 
@@ -84,9 +87,14 @@ export function SectionEssentiel({ nom, strate, annee, finances, refs, travaux }
           ))}
           {travaux.facture > 0 && (
             <p>
-              Les documents obtenus auprès de la mairie détaillent <strong>{formatEuros(travaux.facture)}</strong> de factures de travaux,
-              réparties sur {travaux.nbChantiers} chantiers
-              {travaux.anneeMin && travaux.anneeMax ? ` entre ${travaux.anneeMin} et ${travaux.anneeMax}` : ""}.{" "}
+              Les documents obtenus auprès de la mairie détaillent <strong>{formatEuros(travaux.facture)}</strong> de factures de travaux
+              {travaux.nbChantiersFactures > 0 ? `, réparties sur ${travaux.nbChantiersFactures} chantier${travaux.nbChantiersFactures > 1 ? "s" : ""}` : ""}
+              {travaux.anneeMinFactures && travaux.anneeMaxFactures
+                ? travaux.anneeMinFactures === travaux.anneeMaxFactures
+                  ? ` en ${travaux.anneeMinFactures}`
+                  : ` entre ${travaux.anneeMinFactures} et ${travaux.anneeMaxFactures}`
+                : ""}
+              .{" "}
               <a href="#travaux">Voir les chantiers</a>
             </p>
           )}

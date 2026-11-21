@@ -14,6 +14,7 @@ import { site } from "@/lib/config";
 import { db } from "@/lib/db";
 import { financesCommune, referencesStrate } from "@/lib/finances";
 import { formatDate, formatDateCourte } from "@/lib/format";
+import { deCommune } from "@/lib/lieux";
 import { STATUT_DEMANDE } from "@/lib/statuts";
 import { travauxCommune } from "@/lib/travaux";
 
@@ -29,12 +30,13 @@ const chargerCommune = cache((slug: string) =>
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = await chargerCommune((await params).slug);
   if (!c) return { title: "Commune introuvable" };
-  const description = `Budget, dette, travaux et documents de la commune de ${c.nom} (${c.departement.nom}) : comptes publics et pièces obtenues auprès de la mairie, rendus lisibles.`;
+  const description = `Budget, dette, travaux et documents de la commune ${deCommune(c.nom)} (${c.departement.nom}) : comptes publics et pièces obtenues auprès de la mairie, rendus lisibles.`;
   return {
     title: `${c.nom} (${c.departementCode}) : budget, travaux, documents`,
     description,
     alternates: { canonical: `/communes/${c.slug}` },
-    openGraph: { title: `${c.nom} · ${site.nom}`, description, type: "website", locale: "fr_FR" },
+    openGraph: { title: `${c.nom} · ${site.nom}`, description, type: "website", locale: "fr_FR", siteName: site.nom, url: `/communes/${c.slug}` },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -52,7 +54,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
   const commune = await chargerCommune(slug);
   if (!commune) notFound();
 
-  const [finances, refs, travaux, indemnites, frais, demandes, lots] = await Promise.all([
+  const [finances, refs, travaux, indemnites, frais, demandes, lots, importe] = await Promise.all([
     financesCommune(commune.code),
     referencesStrate(commune.strate),
     travauxCommune(commune.code),
@@ -70,6 +72,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
       _min: { recuLe: true },
       _max: { publieLe: true },
     }),
+    db.etat.findUnique({ where: { cle: `import:finances:${commune.departementCode}` } }),
   ]);
 
   const anneeDemandee = Number((await searchParams).annee);
@@ -85,6 +88,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
         region={commune.departement.region}
         carte={carte}
         nbDocuments={travaux.documents.length}
+        exercices={finances.exercices}
       />
       <NavFiche sections={SECTIONS} />
 
@@ -111,7 +115,7 @@ export default async function PageCommune({ params, searchParams }: Props) {
         )}
 
         <SectionTravaux chantiers={travaux.chantiers} totaux={travaux.totaux} />
-        <SectionElus population={commune.population} indemnites={indemnites} frais={frais} />
+        <SectionElus population={commune.population} populationTotale={commune.populationTotale} indemnites={indemnites} frais={frais} />
 
         <section id="documents" className="bloc" aria-labelledby="titre-documents">
           <EnTeteSection
@@ -136,7 +140,8 @@ export default async function PageCommune({ params, searchParams }: Props) {
               <h3>Comptes de la commune</h3>
               <p>
                 Agrégats de l&apos;Observatoire des finances et de la gestion publique locales (OFGL), calculés à partir des comptes tenus
-                par la DGFiP, et médianes nationales des communes de même taille.
+                par la Direction générale des finances publiques (DGFiP), et médianes nationales des communes de même taille. Licence
+                Ouverte 2.0{importe ? `, données importées le ${formatDate(new Date(importe.valeur))}` : ""}.
               </p>
               <p className="petit">
                 <a href={`/communes/${commune.slug}/donnees.csv`}>Télécharger les données (CSV)</a> ·{" "}
@@ -193,14 +198,14 @@ export default async function PageCommune({ params, searchParams }: Props) {
                 <p>Aucun document reçu pour l&apos;instant.</p>
               )}
               <p className="petit">
-                Obtenus au titre de l&apos;article L.311-1 du CRPA. Dates, entreprises et montants relevés sur les pièces
+                Obtenus au titre de l&apos;article L.311-1 du <abbr title="code des relations entre le public et l'administration">CRPA</abbr>. Dates, entreprises et montants relevés sur les pièces
                 {dernierePublication ? ` ; dernière publication le ${formatDate(dernierePublication)}` : ""}.
               </p>
             </div>
             <div className="carte">
-              <h3>Une erreur ?</h3>
+              <h3>Une erreur&nbsp;?</h3>
               <p>
-                Un montant mal relevé, une mention qui aurait dû être masquée : écrivez-nous, nous corrigeons ou retirons le document au plus
+                Un montant mal relevé, une mention qui aurait dû être masquée&nbsp;: écrivez-nous, nous corrigeons ou retirons le document au plus
                 vite.
               </p>
               {site.asso.email && (

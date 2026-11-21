@@ -27,19 +27,22 @@ export function BarreSegmentee({ parts, description, legende = false }: { parts:
   return (
     <div>
       <div className="graphique-zone" ref={ref}>
-        <div className="barre-segmentee" role="group" aria-label={description}>
+        {/* Une seule image récapitulative pour les lecteurs d'écran (les valeurs sont aussi dans le tableau
+            de données) ; l'infobulle reste au survol, sans arrêts de tabulation muets. */}
+        <div
+          className="barre-segmentee"
+          role="img"
+          aria-label={`${description} : ${blocs.map((b) => `${b.libelle} ${b.texte} (${formatEuros(b.valeur)})`).join(", ")}`}
+        >
           {blocs.map((b, i) => (
             <div
               key={b.libelle}
+              aria-hidden
               style={{ flex: `${b.valeur} 0 0`, background: b.couleur, color: b.encre }}
-              tabIndex={0}
-              aria-label={`${b.libelle} : ${formatEuros(b.valeur)} (${b.texte})`}
               onPointerEnter={() => setActif(i)}
               onPointerLeave={() => setActif(null)}
-              onFocus={() => setActif(i)}
-              onBlur={() => setActif(null)}
             >
-              {b.tient ? b.texte : ""}
+              {b.tient ? <span className="part-texte">{b.texte}</span> : ""}
             </div>
           ))}
         </div>

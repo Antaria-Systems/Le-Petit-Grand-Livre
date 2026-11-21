@@ -76,13 +76,24 @@ export function BibliothequeDocuments({ documents }: { documents: DocumentFiche[
       <p className="discret petit" aria-live="polite">
         {resultats.length} document{resultats.length > 1 ? "s" : ""}
       </p>
+      {resultats.length === 0 && (
+        <div className="vide">
+          <strong>Aucun document ne correspond{q ? ` à « ${q} »` : ""}.</strong>
+          <p>
+            <button type="button" className="bouton" onClick={() => changer(() => (setQ(""), setType(null)))}>
+              Effacer les filtres
+            </button>
+          </p>
+        </div>
+      )}
       <ul className="liste-documents">
         {resultats.slice(0, limite).map((d) => (
           <li key={d.id}>
             <span className={`type-doc type-${d.categorie.toLowerCase()}`}>{CATEGORIE_DOCUMENT[d.categorie]}</span>
             <div className="doc-corps">
-              <a href={`/documents/${d.id}`} target="_blank" rel="noopener" className="doc-titre">
+              <a href={`/documents/${d.id}`} className="doc-titre">
                 {d.titre}
+                <span className="sr-only"> (PDF{d.nbPages ? `, ${d.nbPages} page${d.nbPages > 1 ? "s" : ""}` : ""})</span>
               </a>
               <p className="doc-meta">
                 {d.date ? formatDateCourte(new Date(`${d.date}T12:00:00Z`)) : d.annee ?? "Date non relevée"}
@@ -95,6 +106,7 @@ export function BibliothequeDocuments({ documents }: { documents: DocumentFiche[
                 )}
                 {d.copie ? " · second exemplaire" : ""}
               </p>
+              {d.publieLe && <p className="doc-source">Copie occultée, publiée le {formatDateCourte(new Date(d.publieLe))}</p>}
             </div>
             <div className="doc-droite">
               {d.montantTTC !== null && <span className="doc-montant chiffres">{formatEuros(d.montantTTC)}</span>}

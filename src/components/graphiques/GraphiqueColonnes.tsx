@@ -52,7 +52,13 @@ export function GraphiqueColonnes({ etiquettes, valeurs, libelle, couleur, forma
 
   return (
     <div className="graphique-zone" ref={ref}>
-      <svg width={largeur} height={hauteur} role="img" aria-label={description}>
+      <svg
+        width={largeur}
+        height={hauteur}
+        viewBox={`0 0 ${largeur} ${hauteur}`}
+        role="img"
+        aria-label={`${description} : ${etiquettes.map((e, i) => `${e} ${valeurs[i] === null ? "donnée indisponible" : formater(valeurs[i]!, format)}`).join(", ")}`}
+      >
         {ticks.map((t) => (
           <g key={t}>
             <line x1={M.gauche} x2={M.gauche + l} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} />
@@ -76,7 +82,24 @@ export function GraphiqueColonnes({ etiquettes, valeurs, libelle, couleur, forma
               </text>
             )}
             {i === indexEtiquete && v !== null && (
-              <text x={xc(i)} y={Math.min(y(v), yBase) - 7} textAnchor="middle" fontSize={12} fontWeight={600} fill="var(--ink)" className="chiffres">
+              // Aux extrémités, l'étiquette s'aligne sur la colonne pour ne pas déborder sur la voisine.
+              <text
+                x={i === n - 1 && n > 1 ? xc(i) + w / 2 : i === 0 && n > 1 ? xc(i) - w / 2 : xc(i)}
+                // Étiquette décalée au-dessus de la colonne voisine qu'elle chevauche (aux extrémités).
+                y={
+                  Math.min(
+                    y(v),
+                    yBase,
+                    i === n - 1 && n > 1 && valeurs[i - 1] !== null ? y(valeurs[i - 1]!) : Infinity,
+                    i === 0 && n > 1 && valeurs[1] !== null ? y(valeurs[1]!) : Infinity,
+                  ) - 7
+                }
+                textAnchor={i === n - 1 && n > 1 ? "end" : i === 0 && n > 1 ? "start" : "middle"}
+                fontSize={12}
+                fontWeight={600}
+                fill="var(--ink)"
+                className="chiffres"
+              >
                 {formater(v, format, true)}
               </text>
             )}
@@ -87,12 +110,8 @@ export function GraphiqueColonnes({ etiquettes, valeurs, libelle, couleur, forma
               width={bande}
               height={h}
               fill="transparent"
-              tabIndex={v === null ? -1 : 0}
-              aria-label={`${etiquettes[i]} : ${v === null ? "donnée indisponible" : formater(v, format)}`}
               onPointerEnter={() => setActif(i)}
               onPointerLeave={() => setActif(null)}
-              onFocus={() => setActif(i)}
-              onBlur={() => setActif(null)}
             />
           </g>
         ))}

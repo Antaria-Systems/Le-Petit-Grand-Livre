@@ -18,6 +18,10 @@ export function Entete() {
         </ul>
       </nav>
       <EnteteSite nom={site.nom} />
+      {/* Sans JavaScript, le menu mobile ne peut pas s'ouvrir : la navigation est alors affichée telle quelle. */}
+      <noscript>
+        <style>{`.bouton-menu{display:none!important}.entete-menu{display:block!important;position:static!important;inset:auto!important;background:none!important;overflow:visible!important}.menu-tete,.menu-recherche,.menu-outils{display:none!important}`}</style>
+      </noscript>
     </>
   );
 }

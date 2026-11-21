@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDateCourte, formatEuros, formatEurosCompact } from "@/lib/format";
 import { CATEGORIE_DOCUMENT } from "@/lib/statuts";
 import type { Chantier } from "@/lib/travaux";
@@ -45,7 +45,24 @@ export function ListeChantiers({ chantiers }: { chantiers: Chantier[] }) {
     return [...c].sort((a, b) => b[1] - a[1]);
   }, [chantiers]);
   const [filtre, setFiltre] = useState<string | null>(null);
+  const [tout, setTout] = useState(false);
   const visibles = filtre ? chantiers.filter((c) => c.categorie === filtre) : chantiers;
+  // Fiche longue sur mobile : les 5 premiers chantiers, puis « afficher tous ».
+  const PREMIERS = 5;
+  const affiches = tout || filtre ? visibles : visibles.slice(0, PREMIERS);
+
+  // Lien vers un chantier replié (classement, adresse partagée) : on déplie puis on y va.
+  useEffect(() => {
+    const ouvrir = () => {
+      const h = window.location.hash;
+      if (!h.startsWith("#chantier-")) return;
+      setTout(true);
+      requestAnimationFrame(() => document.getElementById(h.slice(1))?.scrollIntoView());
+    };
+    ouvrir();
+    window.addEventListener("hashchange", ouvrir);
+    return () => window.removeEventListener("hashchange", ouvrir);
+  }, []);
 
   return (
     <>
@@ -60,7 +77,7 @@ export function ListeChantiers({ chantiers }: { chantiers: Chantier[] }) {
         ))}
       </div>
       <div className="chantiers">
-        {visibles.map((c) => {
+        {affiches.map((c) => {
           const statut = STATUT[c.statut];
           const progression = c.montantVote && c.facture ? Math.min(1, c.facture / c.montantVote) : null;
           return (
@@ -110,8 +127,9 @@ export function ListeChantiers({ chantiers }: { chantiers: Chantier[] }) {
                     <li key={d.id}>
                       <time className="chiffres">{dateDoc(d)}</time>
                       <span className={`type-doc type-${d.categorie.toLowerCase()}`}>{CATEGORIE_DOCUMENT[d.categorie]}</span>
-                      <a href={`/documents/${d.id}`} target="_blank" rel="noopener">
+                      <a href={`/documents/${d.id}`}>
                         {d.titre}
+                        <span className="sr-only"> (PDF)</span>
                       </a>
                       <span className="chiffres montant">{d.montantTTC !== null ? formatEuros(d.montantTTC) : ""}</span>
                     </li>
@@ -122,6 +140,13 @@ export function ListeChantiers({ chantiers }: { chantiers: Chantier[] }) {
           );
         })}
       </div>
+      {affiches.length < visibles.length && (
+        <p className="section-suite">
+          <button type="button" className="bouton" onClick={() => setTout(true)}>
+            Afficher les {visibles.length - affiches.length} autres chantiers
+          </button>
+        </p>
+      )}
     </>
   );
 }

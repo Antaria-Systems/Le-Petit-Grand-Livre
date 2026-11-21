@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { signOut } from "@/auth";
+import { RechercheAdmin } from "@/components/admin/RechercheAdmin";
 import { BoutonTheme } from "@/components/BoutonTheme";
 import { LogoRegistre } from "@/components/Icones";
 import { site } from "@/lib/config";
@@ -35,6 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/demandes">Demandes</Link>
           <Link href="/admin/documents">Documents</Link>
           <Link href="/admin/depot">Déposer</Link>
+          <RechercheAdmin />
           <span className="discret petit">
             {admin.mode === "oidc" ? admin.nom : "Accès provisoire par mot de passe"}
           </span>

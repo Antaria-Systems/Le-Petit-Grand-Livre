@@ -95,7 +95,7 @@ const IGNORES = /(^|\/)(__MACOSX\/|\._|\.DS_Store$|Thumbs\.db$|desktop\.ini$)/i;
 
 /** Image (scan, photo) → PDF d'une page A4, orientée d'après l'EXIF. */
 async function imageEnPdf(contenu: Buffer): Promise<Buffer> {
-  const { data, info } = await sharp(contenu, { failOn: "none" }).rotate().flatten({ background: "#ffffff" }).jpeg({ quality: 88 }).toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(contenu, { failOn: "none", limitInputPixels: 60_000_000 }).rotate().flatten({ background: "#ffffff" }).jpeg({ quality: 88 }).toBuffer({ resolveWithObject: true });
   const pdf = await PDFDocument.create();
   const image = await pdf.embedJpg(data);
   const [l, h] = info.width > info.height ? [841.89, 595.28] : [595.28, 841.89];

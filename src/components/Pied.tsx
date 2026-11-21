@@ -59,7 +59,9 @@ export function Pied() {
             <div>
               <h2>Ouvert</h2>
               <ul>
-                <li>Code sous licence AGPL-3.0</li>
+                <li>
+                  {site.codeSource ? <a href={site.codeSource}>Code source (AGPL-3.0)</a> : "Code sous licence AGPL-3.0, disponible sur demande"}
+                </li>
                 <li>Données sous Licence Ouverte 2.0</li>
                 <li>
                   <Link prefetch={false} href="/mentions-legales#donnees-personnelles">Vos données personnelles</Link>
@@ -91,6 +93,7 @@ export function Pied() {
                 <li key={s.href}>
                   <a href={s.href} target="_blank" rel="noopener noreferrer" title={`${s.libelle}, nouvelle fenêtre`}>
                     {s.libelle}
+                    <span className="sr-only"> (nouvel onglet)</span>
                     <IconeExterne />
                   </a>
                 </li>
@@ -115,11 +118,17 @@ export function Pied() {
           </ul>
           <p>
             Sauf mention contraire, les données de ce site sont publiées sous{" "}
-            <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/" target="_blank" rel="noopener noreferrer">
-              Licence Ouverte 2.0
-            </a>{" "}
-            et son code sous licence AGPL-3.0. Comptes : OFGL · Référentiel géographique : geo.api.gouv.fr · Coordonnées des mairies :
-            Annuaire de l&apos;administration.
+            <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a> et son code sous licence AGPL-3.0
+            {site.codeSource ? (
+              <>
+                {" "}
+                (<a href={site.codeSource}>code source</a>)
+              </>
+            ) : (
+              " (code source sur demande)"
+            )}
+            . Les documents reproduits restent soumis, le cas échéant, aux droits de leurs auteurs. Comptes&nbsp;: OFGL · Référentiel
+            géographique&nbsp;: geo.api.gouv.fr (IGN) · Coordonnées des mairies&nbsp;: Annuaire de l&apos;administration.
           </p>
         </div>
       </div>

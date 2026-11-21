@@ -54,6 +54,7 @@ export async function ecrireOriginal(id: string, clair: Buffer): Promise<string>
 }
 
 export async function lireOriginal(relatif: string): Promise<Buffer> {
+  if (!relatif) throw new Error("Original supprimé à l'issue de la durée de conservation : seule la version publique subsiste.");
   return dechiffrer(await readFile(cheminStockage(relatif)));
 }
 
@@ -87,7 +88,7 @@ export async function supprimerStockage(relatif: string): Promise<void> {
 
 /** Supprime tous les fichiers d'un document (original chiffré, aperçus, version publique). */
 export async function supprimerFichiersDocument(d: { id: string; cheminChiffre: string; cheminPublic: string | null }): Promise<void> {
-  await supprimerStockage(d.cheminChiffre);
+  if (d.cheminChiffre) await supprimerStockage(d.cheminChiffre);
   await supprimerStockage(`apercus/${d.id}`);
   if (d.cheminPublic) await supprimerStockage(d.cheminPublic);
 }

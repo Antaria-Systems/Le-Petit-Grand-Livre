@@ -4,10 +4,11 @@ import type { StatutDocument } from "@/generated/prisma/enums";
 import { verifierAdminPage } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { formatDateCourte } from "@/lib/format";
+import { depuisHeureParis, versHeureParis } from "@/lib/heure";
 import { CATEGORIE_DOCUMENT, STATUT_DOCUMENT } from "@/lib/statuts";
 import { normaliser } from "@/lib/texte";
 
-type Props = { searchParams: Promise<{ statut?: string; bloques?: string; q?: string; commune?: string; lot?: string; page?: string }> };
+type Props = { searchParams: Promise<{ statut?: string; bloques?: string; publies?: string; q?: string; commune?: string; lot?: string; page?: string }> };
 
 const ORDRE: StatutDocument[] = ["A_VERIFIER", "RECU", "EN_ANALYSE", "OCCULTE", "PUBLIE", "NON_PUBLIABLE"];
 const PAR_PAGE = 50;
@@ -17,13 +18,22 @@ export default async function AdminDocuments({ searchParams }: Props) {
   const p = await searchParams;
   const filtre = ORDRE.includes(p.statut as StatutDocument) ? (p.statut as StatutDocument) : undefined;
   const bloques = p.bloques === "1";
+  // « Publiés aujourd'hui » : relecture d'un coup d'œil des publications automatiques de « Terminer »
+  const publiesJour = p.publies === "jour";
+  const minuitParis = depuisHeureParis(`${versHeureParis(new Date()).slice(0, 10)}T00:00`)!;
   const q = (p.q ?? "").trim().slice(0, 100);
   const commune = /^[0-9AB]{5}$/.test(p.commune ?? "") ? p.commune : undefined;
   const lot = (p.lot ?? "").slice(0, 200) || undefined;
   const page = Math.max(1, Number(p.page) || 1);
 
   const where: Prisma.DocumentWhereInput = {
-    ...(bloques ? { statut: "OCCULTE", erreur: { not: null }, travail: null } : filtre ? { statut: filtre } : {}),
+    ...(bloques
+      ? { statut: "OCCULTE", erreur: { not: null }, travail: null }
+      : publiesJour
+        ? { statut: "PUBLIE", publieLe: { gte: minuitParis } }
+        : filtre
+          ? { statut: filtre }
+          : {}),
     ...(commune ? { communeCode: commune } : {}),
     ...(lot ? { lot } : {}),
     ...(q
@@ -70,7 +80,7 @@ export default async function AdminDocuments({ searchParams }: Props) {
   const pages = Math.max(1, Math.ceil(total / PAR_PAGE));
   const lien = (changes: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
-    const base = { statut: filtre, bloques: bloques ? "1" : undefined, q: q || undefined, commune, lot, ...changes };
+    const base = { statut: filtre, bloques: bloques ? "1" : undefined, publies: publiesJour ? "jour" : undefined, q: q || undefined, commune, lot, ...changes };
     for (const [k, v] of Object.entries(base)) if (v) u.set(k, v);
     const s = u.toString();
     return `/admin/documents${s ? `?${s}` : ""}`;
@@ -86,16 +96,19 @@ export default async function AdminDocuments({ searchParams }: Props) {
           </Link>
         </div>
         <nav className="selecteur-annee" aria-label="Filtrer par statut" style={{ marginBottom: 12 }}>
-          <Link href={lien({ statut: undefined, bloques: undefined, page: undefined })} aria-current={!filtre && !bloques ? "page" : undefined}>
+          <Link href={lien({ statut: undefined, bloques: undefined, publies: undefined, page: undefined })} aria-current={!filtre && !bloques && !publiesJour ? "page" : undefined}>
             Tous ({tous})
           </Link>
+          <Link href={lien({ statut: undefined, bloques: undefined, publies: "jour", page: undefined })} aria-current={publiesJour ? "page" : undefined}>
+            Publiés aujourd&apos;hui
+          </Link>
           {nbBloques > 0 && (
-            <Link href={lien({ statut: undefined, bloques: "1", page: undefined })} aria-current={bloques ? "page" : undefined}>
+            <Link href={lien({ statut: undefined, bloques: "1", publies: undefined, page: undefined })} aria-current={bloques ? "page" : undefined}>
               Bloqués par le contrôle ({nbBloques})
             </Link>
           )}
           {ORDRE.filter((s) => nb(s) > 0).map((s) => (
-            <Link key={s} href={lien({ statut: s, bloques: undefined, page: undefined })} aria-current={filtre === s && !bloques ? "page" : undefined}>
+            <Link key={s} href={lien({ statut: s, bloques: undefined, publies: undefined, page: undefined })} aria-current={filtre === s && !bloques ? "page" : undefined}>
               {STATUT_DOCUMENT[s].libelle} ({nb(s)})
             </Link>
           ))}

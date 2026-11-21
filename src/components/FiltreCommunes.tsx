@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { formatEntier } from "@/lib/format";
 import { normaliser } from "@/lib/texte";
 
@@ -9,10 +9,12 @@ type C = { nom: string; slug: string; population: number | null; cle: string };
 
 export function FiltreCommunes({ communes }: { communes: C[] }) {
   const [q, setQ] = useState("");
+  // La liste (433 liens et plus) se met à jour en différé : la saisie reste fluide.
+  const qDiffere = useDeferredValue(q);
   const filtrees = useMemo(() => {
-    const n = normaliser(q);
+    const n = normaliser(qDiffere).replace(/\bste\b/g, "sainte").replace(/\bst\b/g, "saint");
     return n ? communes.filter((c) => c.cle.includes(n)) : communes;
-  }, [q, communes]);
+  }, [qDiffere, communes]);
 
   const parLettre = new Map<string, C[]>();
   for (const c of filtrees) {
@@ -44,6 +46,11 @@ export function FiltreCommunes({ communes }: { communes: C[] }) {
       {filtrees.length === 0 && (
         <div className="vide">
           <strong>Aucune commune ne correspond à « {q} ».</strong>
+          <p>
+            <button type="button" className="bouton" onClick={() => setQ("")}>
+              Effacer le filtre
+            </button>
+          </p>
         </div>
       )}
       <div className="lettres">

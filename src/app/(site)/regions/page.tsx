@@ -7,6 +7,7 @@ import { formatEntier } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Tous les territoires",
   description: "Régions et départements couverts par la plateforme, et ceux qui le seront prochainement.",
+  alternates: { canonical: "/regions" },
 };
 
 export default async function Territoires() {

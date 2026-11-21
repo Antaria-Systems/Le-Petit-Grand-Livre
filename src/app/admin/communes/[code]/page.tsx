@@ -21,6 +21,7 @@ import {
   supprimerIndemnite,
 } from "@/app/admin/actions";
 import { FormulaireAction } from "@/components/admin/FormulaireAction";
+import { OngletActifVisible } from "@/components/admin/OngletActifVisible";
 import { site } from "@/lib/config";
 import { db } from "@/lib/db";
 import {
@@ -108,6 +109,7 @@ export default async function AdminCommune({ params, searchParams }: Props) {
           </div>
         </div>
 
+        <OngletActifVisible />
         <nav className="onglets" aria-label="Sections">
           {ONGLETS.map((o) => (
             <Link key={o.id} href={`/admin/communes/${code}?onglet=${o.id}`} aria-current={onglet === o.id ? "page" : undefined}>

@@ -13,6 +13,7 @@ export type DocumentFiche = {
   nbPages: number | null;
   copie: boolean;
   chantier: { slug: string; intitule: string } | null;
+  publieLe: string | null; // ISO
 };
 
 export type Chantier = {
@@ -51,6 +52,7 @@ export async function travauxCommune(code: string) {
         montantTTC: true,
         nbPages: true,
         copie: true,
+        publieLe: true,
         operation: { select: { slug: true, intitule: true } },
       },
     }),
@@ -70,6 +72,7 @@ export async function travauxCommune(code: string) {
       nbPages: d.nbPages,
       copie: d.copie,
       chantier: d.operation,
+      publieLe: d.publieLe ? d.publieLe.toISOString() : null,
     }))
     .sort((a, b) => (b.date ?? String(b.annee ?? 0)).localeCompare(a.date ?? String(a.annee ?? 0)));
 
@@ -100,6 +103,8 @@ export async function travauxCommune(code: string) {
 
   const factures = documents.filter((d) => d.categorie === "FACTURE" && !d.copie && d.montantTTC !== null);
   const annees = documents.map((d) => d.annee).filter((a): a is number => a !== null);
+  // Les factures elles-mêmes : années et chantiers réellement facturés (pas les devis ni les délibérations).
+  const anneesFactures = factures.map((d) => d.annee).filter((a): a is number => a !== null);
   const entreprises = new Set(documents.map((d) => d.entreprise).filter((e): e is string => Boolean(e) && e !== "Département de l'Aude"));
   return {
     documents,
@@ -110,6 +115,9 @@ export async function travauxCommune(code: string) {
       entreprises: entreprises.size,
       anneeMin: annees.length ? Math.min(...annees) : null,
       anneeMax: annees.length ? Math.max(...annees) : null,
+      anneeMinFactures: anneesFactures.length ? Math.min(...anneesFactures) : null,
+      anneeMaxFactures: anneesFactures.length ? Math.max(...anneesFactures) : null,
+      nbChantiersFactures: chantiers.filter((c) => c.nbFactures > 0).length,
     },
   };
 }

@@ -72,43 +72,105 @@ type LigneOfgl = {
   type_de_budget: string;
   montant: number | null;
   euros_par_habitant: number | null;
+  ptot: number | null;
   tranche_population: string | null;
   epci_name: string | null;
 };
 const annee = (exer: string) => Number(exer.slice(0, 4));
 
+/** Date du dernier import réussi (affichée sur les fiches : source et date de mise à jour, L.322-1 CRPA). */
+async function noterImport(cle: string) {
+  const valeur = new Date().toISOString();
+  await db.etat.upsert({ where: { cle }, create: { cle, valeur }, update: { valeur } });
+}
+
 export async function importerFinances(dep: string, log: Journal) {
   const lignes = await getJson<LigneOfgl[]>(
     odsExport(OFGL, JEU_OFGL, {
       where: `dep_code='${dep}'`,
-      select: "exer,com_code,agregat,type_de_budget,montant,euros_par_habitant,tranche_population,epci_name",
+      select: "exer,com_code,agregat,type_de_budget,montant,euros_par_habitant,ptot,tranche_population,epci_name",
     }),
   );
   const connues = new Set((await db.commune.findMany({ where: { departementCode: dep }, select: { code: true } })).map((c) => c.code));
-  const cumul = new Map<string, { communeCode: string; exercice: number; agregat: string; typeBudget: string; montant: number; parHabitant: number | null }>();
+  type Cumul = {
+    communeCode: string;
+    exercice: number;
+    agregat: string;
+    typeBudget: string;
+    montant: number;
+    ptot: number;
+    nbLignes: number;
+    parHabitantOfgl: number | null;
+  };
+  const cumul = new Map<string, Cumul>();
   const infos = new Map<string, { exercice: number; strate: number | null; epciNom: string | null }>();
+  // Population totale du budget principal par commune et exercice (communes nouvelles : plusieurs lignes)
+  const populations = new Map<string, Map<number, number>>();
   for (const l of lignes) {
     if (!connues.has(l.com_code) || l.montant === null) continue;
     const exercice = annee(l.exer);
     const cle = `${l.com_code}|${exercice}|${l.agregat}|${l.type_de_budget}`;
+    const principal = l.type_de_budget === "Budget principal";
     const e = cumul.get(cle);
-    // Les budgets annexes d'une même commune sont cumulés par agrégat.
     if (e) {
+      // Plusieurs lignes pour une même clé :
+      //  - budgets annexes d'une commune : même population, montants cumulés ;
+      //  - commune nouvelle (budgets principaux des communes fusionnées) : montants ET populations cumulés.
+      // Les euros par habitant ne s'additionnent jamais : ils sont recalculés (Σ montants / Σ populations).
       e.montant += l.montant;
-      e.parHabitant = (e.parHabitant ?? 0) + (l.euros_par_habitant ?? 0);
+      e.nbLignes++;
+      if (principal) e.ptot += l.ptot ?? 0;
+      else e.ptot = Math.max(e.ptot, l.ptot ?? 0);
     } else {
-      cumul.set(cle, { communeCode: l.com_code, exercice, agregat: l.agregat, typeBudget: l.type_de_budget, montant: l.montant, parHabitant: l.euros_par_habitant });
+      cumul.set(cle, {
+        communeCode: l.com_code,
+        exercice,
+        agregat: l.agregat,
+        typeBudget: l.type_de_budget,
+        montant: l.montant,
+        ptot: l.ptot ?? 0,
+        nbLignes: 1,
+        parHabitantOfgl: l.euros_par_habitant,
+      });
     }
     const info = infos.get(l.com_code);
-    if (l.type_de_budget === "Budget principal" && (!info || info.exercice < exercice)) {
+    if (principal && (!info || info.exercice < exercice)) {
       infos.set(l.com_code, { exercice, strate: l.tranche_population === null ? null : Number(l.tranche_population), epciNom: l.epci_name });
     }
   }
-  const donnees = [...cumul.values()];
-  await db.agregatFinancier.deleteMany({ where: { commune: { departementCode: dep } } });
-  for (let i = 0; i < donnees.length; i += 5000) await db.agregatFinancier.createMany({ data: donnees.slice(i, i + 5000) });
-  for (const [code, info] of infos) await db.commune.update({ where: { code }, data: { strate: info.strate, epciNom: info.epciNom } });
-  await log(`Département ${dep} : ${donnees.length} agrégats financiers pour ${infos.size} communes`);
+  const donnees = [...cumul.values()].map((c) => {
+    const parHabitant = c.nbLignes === 1 ? c.parHabitantOfgl : c.ptot > 0 ? Math.round((c.montant / c.ptot) * 100) / 100 : null;
+    if (c.typeBudget === "Budget principal" && c.ptot > 0) {
+      if (!populations.has(c.communeCode)) populations.set(c.communeCode, new Map());
+      const p = populations.get(c.communeCode)!;
+      p.set(c.exercice, Math.max(p.get(c.exercice) ?? 0, c.ptot));
+    }
+    return { communeCode: c.communeCode, exercice: c.exercice, agregat: c.agregat, typeBudget: c.typeBudget, montant: c.montant, parHabitant };
+  });
+
+  // Garde-fou : une réponse OFGL vide ou tronquée ne doit pas effacer les comptes publiés.
+  const avant = await db.agregatFinancier.count({ where: { commune: { departementCode: dep } } });
+  if (avant > 0 && donnees.length < avant * 0.5) {
+    throw new Error(`Réponse OFGL anormalement réduite (${donnees.length} agrégats contre ${avant} en base) : import annulé, rien n'a été modifié.`);
+  }
+  await db.$transaction(
+    async (tx) => {
+      await tx.agregatFinancier.deleteMany({ where: { commune: { departementCode: dep } } });
+      for (let i = 0; i < donnees.length; i += 5000) await tx.agregatFinancier.createMany({ data: donnees.slice(i, i + 5000) });
+    },
+    { timeout: 300_000, maxWait: 30_000 },
+  );
+  for (const [code, info] of infos) {
+    const pops = populations.get(code);
+    const derniere = pops ? pops.get(Math.max(...pops.keys())) ?? null : null;
+    await db.commune.update({ where: { code }, data: { strate: info.strate, epciNom: info.epciNom, populationTotale: derniere } });
+  }
+  await noterImport(`import:finances:${dep}`);
+  const nouvelles = [...cumul.values()].filter((c) => c.typeBudget === "Budget principal" && c.nbLignes > 1);
+  await log(
+    `Département ${dep} : ${donnees.length} agrégats financiers pour ${infos.size} communes` +
+      (nouvelles.length ? ` (${new Set(nouvelles.map((c) => c.communeCode)).size} commune(s) nouvelle(s) : montants par habitant recalculés)` : ""),
+  );
 }
 
 export async function importerReferencesStrates(log: Journal) {
@@ -123,9 +185,17 @@ export async function importerReferencesStrates(log: Journal) {
   const data = lignes
     .filter((l) => l.med !== null && l.moy !== null && l.tranche_population !== null)
     .map((l) => ({ exercice: annee(l.exer), strate: Number(l.tranche_population), agregat: l.agregat, medianeParHabitant: l.med!, moyenneParHabitant: l.moy!, nbCommunes: l.n }));
-  await db.referenceStrate.deleteMany();
-  await db.referenceStrate.createMany({ data });
+  const avant = await db.referenceStrate.count();
+  if (avant > 0 && data.length < avant * 0.5) throw new Error(`Médianes OFGL anormalement réduites (${data.length} contre ${avant}) : non remplacées.`);
+  await db.$transaction([db.referenceStrate.deleteMany(), db.referenceStrate.createMany({ data })]);
+  await noterImport("import:references");
   await log(`Médianes nationales : ${data.length} références`);
+}
+
+/** Médianes à rafraîchir : absentes, ou en retard d'un exercice sur les comptes importés. */
+async function referencesARafraichir(): Promise<boolean> {
+  const [ref, agr] = await Promise.all([db.referenceStrate.aggregate({ _max: { exercice: true } }), db.agregatFinancier.aggregate({ _max: { exercice: true } })]);
+  return ref._max.exercice === null || (agr._max.exercice !== null && ref._max.exercice < agr._max.exercice);
 }
 
 export async function importerAnnuaire(dep: string, log: Journal) {
@@ -159,7 +229,8 @@ export async function importerAnnuaire(dep: string, log: Journal) {
         mairieEmail: c.mairieEmail ?? (l.adresse_courriel?.split(";")[0]?.trim() || null),
         mairieTelephone: c.mairieTelephone ?? premier<{ valeur: string }>(l.telephone)?.valeur ?? null,
         mairieAdresse: c.mairieAdresse ?? adresse(l.adresse),
-        mairieSite: c.mairieSite ?? premier<{ valeur: string }>(l.site_internet)?.valeur ?? null,
+        // Seules les adresses http(s) sont reprises (jamais un lien « javascript: » ou autre).
+        mairieSite: c.mairieSite ?? ((v) => (v && /^https?:\/\//i.test(v) ? v : null))(premier<{ valeur: string }>(l.site_internet)?.valeur ?? null),
       },
     });
     maj++;
@@ -174,6 +245,6 @@ export async function importerDepartement(dep: string, log: Journal) {
   await importerCommunes(dep, log);
   await importerFinances(dep, log);
   await importerAnnuaire(dep, log);
-  if ((await db.referenceStrate.count()) === 0) await importerReferencesStrates(log);
+  if (await referencesARafraichir()) await importerReferencesStrates(log);
   await log(`Département ${dep} : import terminé`);
 }
