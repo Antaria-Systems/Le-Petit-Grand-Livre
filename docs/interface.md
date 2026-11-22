@@ -15,8 +15,10 @@ L'identité visuelle de la plateforme, ses composants, ses graphiques, et ce qui
 5. [Graphiques](#5-graphiques)
 6. [Accessibilité](#6-accessibilité)
 7. [Mobile](#7-mobile)
-8. [Référencement et partage](#8-référencement-et-partage)
-9. [Où modifier quoi](#9-où-modifier-quoi)
+8. [Animations](#8-animations)
+9. [Impression](#9-impression)
+10. [Référencement et partage](#10-référencement-et-partage)
+11. [Où modifier quoi](#11-où-modifier-quoi)
 
 ---
 
@@ -115,7 +117,7 @@ Référentiel visé : **RGAA 4.1 / WCAG 2.2 niveau AA**.
 | Contrastes | Textes de 4,8:1 à 17:1 dans les deux thèmes ; traits de champs contrastés. |
 | Texte agrandi et zoom | Grilles en `rem`, coupure des mots longs, aucune hauteur fixe sur les éléments de texte ; pas de défilement horizontal de 320 à 1440 px. |
 | Couleurs forcées (Windows) | Contours de champs et états actifs conservés (`@media (forced-colors: active)`). |
-| Mouvement | `prefers-reduced-motion` respecté. |
+| Mouvement | Animations courtes, jamais nécessaires à la compréhension, toutes coupées si l'utilisateur limite les animations (`prefers-reduced-motion`) ; aucun mouvement automatique ne dure plus de 5 s. |
 | Sans JavaScript | Recherche et navigation mobile utilisables. |
 
 ---
@@ -133,7 +135,31 @@ Référentiel visé : **RGAA 4.1 / WCAG 2.2 niveau AA**.
 
 ---
 
-## 8. Référencement et partage
+## 8. Animations
+
+Toutes les animations sont décrites dans `globals.css` (jetons `--duree-rapide`, `--duree`, `--courbe`, `--courbe-sortie`) et coupées par `prefers-reduced-motion: reduce`.
+
+| Où | Ce qui se passe |
+|---|---|
+| Défilement | Les blocs (tuiles, graphiques, chantiers, cartes, étapes) montent en fondu à leur arrivée dans la fenêtre, l'un après l'autre dans une grille ; les colonnes poussent depuis la ligne de base, les courbes se tracent, les barres s'allongent, la barre de composition se dévoile. |
+| Fiche | Un filet rouge (la marge du grand livre) suit la lecture sous les onglets ; le repère de la carte bat deux fois à l'arrivée ; un chantier atteint depuis le classement est surligné. |
+| Accueil et fiche | La double marge rouge se trace à l'arrivée ; l'encart des chiffres monte. |
+| Survol | Cartes et tuiles légèrement soulevées, flèches qui avancent, soulignement du menu qui se déploie, ligne de tableau repérée. |
+| Commandes | Trait des champs épaissi au focus ; liste de recherche, menu mobile et infobulles en fondu ; dépliants « Voir les données » animés ; fondu enchaîné au changement de thème (View Transitions). |
+
+**Apparition au défilement** : le composant `components/Apparition.tsx` (monté dans la mise en page du site public) marque `data-apparition="attente"` les blocs situés sous l'écran au chargement, puis `"vu"` à leur arrivée (IntersectionObserver). Ce qui est déjà visible ne bouge pas ; sans JavaScript, rien n'est masqué. Les marques des graphiques portent les classes `colonne`, `trace` (avec `pathLength={1}`) et `fin`. La liste des blocs concernés est la constante `CIBLES` du composant.
+
+La barre de lecture et les dépliants animés utilisent des fonctions récentes (animations liées au défilement, `::details-content`) : les navigateurs qui ne les gèrent pas affichent simplement la page sans ces effets.
+
+---
+
+## 9. Impression
+
+Une fiche imprimée garde l'identité, les chiffres clés, les graphiques et les documents ; l'en-tête est réduit à la marque, la navigation, la recherche et les commandes disparaissent. Le thème sombre est réservé à l'écran (`@media screen`) : l'impression sort toujours en clair, avec les couleurs des graphiques conservées (`print-color-adjust: exact`).
+
+---
+
+## 10. Référencement et partage
 
 - **Titres et descriptions** propres à chaque page (« Lavalette (11) : budget, travaux, documents », « Communes de l'Aude (11) : finances et documents »).
 - **Adresses canoniques** sur toutes les pages ; `?annee=` neutralisé sur les fiches.
@@ -148,7 +174,7 @@ Référentiel visé : **RGAA 4.1 / WCAG 2.2 niveau AA**.
 
 ---
 
-## 9. Où modifier quoi
+## 11. Où modifier quoi
 
 | Je veux changer… | Fichier |
 |---|---|
@@ -158,5 +184,6 @@ Référentiel visé : **RGAA 4.1 / WCAG 2.2 niveau AA**.
 | Un texte de l'accueil, de la méthodologie, des mentions | `src/app/(site)/page.tsx`, `methodologie/page.tsx`, `mentions-legales/page.tsx` |
 | Les phrases de « L'essentiel » | `src/lib/resume.ts` |
 | Un graphique | `src/components/graphiques/` |
+| Une animation, les blocs qui apparaissent au défilement | `src/app/globals.css` (« Apparition au défilement », « Animations »), `src/components/Apparition.tsx` |
 | Le barème des indemnités | `src/components/fiche/SectionElus.tsx` |
 | Les images de partage | `src/app/opengraph-image.tsx`, `src/app/(site)/communes/[slug]/opengraph-image.tsx` |
