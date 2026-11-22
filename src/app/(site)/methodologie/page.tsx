@@ -122,10 +122,14 @@ export default function Methodologie() {
               </li>
               <li>
                 Les mentions protégées par la loi sont occultées avant publication (art. L.311-6 et L.311-7)&nbsp;: vie privée,
-                coordonnées personnelles, données bancaires, signatures, appréciations portées sur une personne. Pour le secret
-                des affaires, nous masquons les prix unitaires des bordereaux (BPU, DQE, DPGF) des marchés et accords-cadres, en
-                conservant quantités, désignations et totaux&nbsp;; les montants des devis et factures payés par la commune restent
-                publics.
+                coordonnées personnelles, données bancaires, signatures, appréciations portées sur une personne.
+              </li>
+              <li>
+                Secret des affaires&nbsp;: nous publions uniquement les pièces des entreprises <strong>retenues</strong> par la commune
+                (devis acceptés, bons de commande, factures), avec leur détail (désignations, quantités, prix), parce qu&apos;elles
+                justifient une dépense publique effectivement engagée. Les offres des entreprises non retenues ne sont jamais publiées.
+                Une entreprise qui estime qu&apos;une mention relève du secret des affaires (procédés, stratégie commerciale) peut nous
+                demander de l&apos;occulter&nbsp;: nous examinons chaque demande et masquons la mention si elle est fondée.
               </li>
               <li>
                 Entreprises&nbsp;: la dénomination et la commune sont conservées, y compris pour un entrepreneur individuel&nbsp;; le
