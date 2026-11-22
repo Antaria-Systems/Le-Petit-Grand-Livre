@@ -80,7 +80,7 @@ export function EnteteCommune({ commune, departement, region, carte, nbDocuments
             </div>
           </dl>
           <p className="fiche-documents-compteur">
-            <span className="point-vert" aria-hidden /> {nbDocuments} document{nbDocuments > 1 ? "s" : ""} publié{nbDocuments > 1 ? "s" : ""} ·
+            <span className="point-vert" aria-hidden /> {nbDocuments} document{nbDocuments > 1 ? "s" : ""} publié{nbDocuments > 1 ? "s" : ""} ·{" "}
             {exercices.length ? `comptes OFGL ${exercices[0]} à ${exercices[exercices.length - 1]}` : "pas de comptes OFGL publiés"}
           </p>
         </div>

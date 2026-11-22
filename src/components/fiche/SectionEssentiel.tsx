@@ -27,8 +27,8 @@ function Sparkline({ valeurs, indexCourant }: { valeurs: (number | null)[]; inde
   const c = pts.find((p) => p.i === indexCourant);
   return (
     <svg className="sparkline" width={L} height={H} viewBox={`0 0 ${L} ${H}`} aria-hidden>
-      <path d={d} fill="none" stroke="var(--ink-2)" strokeOpacity={0.45} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      {c && <circle cx={x(c.i)} cy={y(c.v)} r={3.5} fill="var(--series-1)" stroke="var(--surface)" strokeWidth={1.5} />}
+      <path className="trace" pathLength={1} d={d} fill="none" stroke="var(--ink-2)" strokeOpacity={0.45} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      {c && <circle className="fin" cx={x(c.i)} cy={y(c.v)} r={3.5} fill="var(--series-1)" stroke="var(--surface)" strokeWidth={1.5} />}
     </svg>
   );
 }

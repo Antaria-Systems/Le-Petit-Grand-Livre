@@ -105,11 +105,23 @@ export function GraphiqueLignes({ etiquettes, series, format, description, haute
               const prec = i > 0 ? s.valeurs[i - 1] : null;
               d += `${prec === null || i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
             });
-            return <path key={s.id} d={d} fill="none" stroke={s.couleur} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />;
+            return (
+              <path
+                key={s.id}
+                className="trace"
+                pathLength={1}
+                d={d}
+                fill="none"
+                stroke={s.couleur}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            );
           })}
 
           {fins.map(({ s, i, yv }) => (
-            <g key={s.id}>
+            <g key={s.id} className="fin">
               <circle cx={x(i)} cy={yv} r={4} fill={s.couleur} stroke="var(--chart-surface)" strokeWidth={2} />
               {!chevauchement && (
                 <text x={x(i) + 9} y={yv} dy="0.32em" fontSize={12} fontWeight={600} fill="var(--ink)" className="chiffres">

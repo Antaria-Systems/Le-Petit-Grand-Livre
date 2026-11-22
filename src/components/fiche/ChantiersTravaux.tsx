@@ -20,7 +20,7 @@ export function ClassementChantiers({ chantiers }: { chantiers: Chantier[] }) {
   const max = Math.max(...avecFactures.map((c) => c.facture), 1);
   return (
     <ol className="classement" aria-label="Montants facturés par chantier">
-      {avecFactures.map((c) => (
+      {avecFactures.map((c, rang) => (
         <li key={c.slug} className={survol && survol !== c.slug ? "classement-attenue" : undefined}>
           <a href={`#chantier-${c.slug}`} onPointerEnter={() => setSurvol(c.slug)} onPointerLeave={() => setSurvol(null)} onFocus={() => setSurvol(c.slug)} onBlur={() => setSurvol(null)}>
             <span className="classement-ligne">
@@ -28,7 +28,7 @@ export function ClassementChantiers({ chantiers }: { chantiers: Chantier[] }) {
               <span className="classement-valeur chiffres">{formatEurosCompact(c.facture)}</span>
             </span>
             <span className="classement-piste" aria-hidden>
-              <span className="classement-barre" style={{ width: `${(c.facture / max) * 100}%` }} />
+              <span className="classement-barre" style={{ width: `${(c.facture / max) * 100}%`, ["--i" as string]: rang } as React.CSSProperties} />
             </span>
           </a>
         </li>

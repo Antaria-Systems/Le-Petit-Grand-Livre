@@ -215,7 +215,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
               </tr>
             </thead>
             <tbody>
-              {lignesComparaison.map((l) => (
+              {lignesComparaison.map((l, rang) => (
                 <tr key={l.agregat}>
                   <th scope="row">{l.libelle}</th>
                   <td className="nombre" data-libelle={nom}>
@@ -232,7 +232,7 @@ export function SectionBudget({ slug, nom, strate, annee, finances, refs }: Prop
                         <div className="ecart-piste" aria-hidden>
                           <div
                             className={`ecart-barre ${l.ecart >= 0 ? "ecart-plus" : "ecart-moins"}`}
-                            style={{ width: `${(Math.min(Math.abs(l.ecart), ecartMax) / ecartMax) * 50}%` }}
+                            style={{ width: `${(Math.min(Math.abs(l.ecart), ecartMax) / ecartMax) * 50}%`, ["--i" as string]: rang } as React.CSSProperties}
                           />
                         </div>
                         <span className="chiffres">

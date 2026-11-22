@@ -71,6 +71,9 @@ export function GraphiqueColonnes({ etiquettes, valeurs, libelle, couleur, forma
           <g key={etiquettes[i]}>
             {v !== null && (
               <path
+                className="colonne"
+                // La colonne pousse depuis la ligne de base (animation d'apparition, globals.css).
+                style={{ transformOrigin: `0 ${yBase}px`, ["--i" as string]: i } as React.CSSProperties}
                 d={chemin(xc(i) - w / 2, w, y(v), yBase)}
                 fill={couleur}
                 opacity={actif === null || actif === i ? 1 : 0.55}

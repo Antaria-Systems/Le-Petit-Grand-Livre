@@ -17,7 +17,13 @@ export function BoutonTheme({ avecLibelle = false }: { avecLibelle?: boolean }) 
 
   function basculer() {
     const suivant: Theme = themeActuel() === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = suivant;
+    const appliquer = () => {
+      document.documentElement.dataset.theme = suivant;
+    };
+    // Fondu enchaîné entre les deux thèmes quand le navigateur sait le faire (View Transitions).
+    const doc = document as Document & { startViewTransition?: (maj: () => void) => unknown };
+    if (doc.startViewTransition && window.matchMedia("(prefers-reduced-motion: no-preference)").matches) doc.startViewTransition(appliquer);
+    else appliquer();
     try {
       localStorage.setItem("theme", suivant);
     } catch {
