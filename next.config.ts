@@ -9,8 +9,7 @@ const nextConfig: NextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-      // HTTPS obligatoire pendant 6 mois (sans les sous-domaines, qui ne sont pas tous vérifiés).
-      { key: "Strict-Transport-Security", value: "max-age=15552000" },
+      // HSTS : envoyé par le reverse proxy (Nginx Proxy Manager), pas ici, pour éviter un en-tête en double.
     ];
     // Politique de contenu : tout vient du site lui-même. Les scripts en ligne restent autorisés
     // (données de Next.js et script du thème), mais aucune source extérieure n'est chargée.
