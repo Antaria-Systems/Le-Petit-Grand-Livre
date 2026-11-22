@@ -29,13 +29,20 @@ npm run dev
 ## Production
 
 ```sh
-docker compose build
-docker compose run --rm tools npx prisma migrate deploy
+# Première installation : rôle limité aux données pour l'app et les workers (POSTGRES_APP_PASSWORD)
+docker compose up -d db
+docker compose run --rm tools npx prisma migrate deploy   # puis créer le rôle lpgl_app (voir scripts/exploitation)
 docker compose run --rm tools npm run import:all
-docker compose up -d app        # écoute sur 10.1.0.2:8087
+
+# Déploiements suivants : construit, étiquette (retour arrière possible), migre, redémarre
+scripts/exploitation/deployer.sh   # site sur 10.1.0.2:8087
 ```
 
-La base de données est sur un réseau Docker interne, sans accès à Internet.
+La base de données est sur un réseau Docker interne, sans accès à Internet. Le traitement des documents (`worker`)
+n'a pas accès à Internet ; les envois et les imports passent par le service `envois`. Sauvegardes, supervision,
+retour arrière et réglages Cloudflare : [`scripts/exploitation/README.md`](scripts/exploitation/README.md).
+
+Tests : `npm test` (les tests d'envoi utilisent un transport factice et une base de test : `TEST_DATABASE_URL`).
 
 ## Documents et occultation
 
@@ -46,7 +53,7 @@ docker compose run --rm --user 0 -v "/chemin/du/lot:/import:ro" tools \
 
 # 2. Le worker analyse (rendu, OCR 300 dpi, détection IBAN / BIC / RIB / téléphones / e-mails,
 #    signatures et tampons par analyse d'image)
-docker compose logs -f worker
+docker compose logs -f worker   # documents ; « envois » pour les demandes programmées
 
 # 3. Valider dans l'admin : /admin  (connexion Authentik, groupe AUTH_ADMIN_GROUP)
 #    tracer les signatures et noms à masquer → « Générer la version occultée » → « Publier »
@@ -87,10 +94,14 @@ mairie, relances, CADA) sont consignés dans le journal de la demande.
 
 - **Connexion** : Authentik (OIDC, PKCE), réservée au groupe `AUTH_ADMIN_GROUP` (claim `groups`).
   Adresse de retour à déclarer : `https://<domaine>/api/auth/callback/authentik`.
-  Tant que `AUTH_AUTHENTIK_SECRET` est vide, un accès provisoire HTTP Basic (`ADMIN_USER` / `ADMIN_PASSWORD`) le remplace.
-- **Contrôle d'accès** vérifié deux fois (`src/proxy.ts` puis chaque route), requêtes d'écriture limitées au même site.
+  Sans Authentik configuré, l'administration est fermée ; un accès HTTP Basic (`ADMIN_USER` / `ADMIN_PASSWORD`) n'existe
+  que sur activation explicite (`ADMIN_BASIC=1`, développement). Session de 24 h au plus.
+- **Contrôle d'accès** vérifié à chaque niveau (`src/proxy.ts`, layout, chaque page, chaque route et action), requêtes
+  d'écriture limitées aux origines configurées.
+- **Envois** : réservation atomique avant tout appel au relais (jamais deux envois d'une même demande), état incertain
+  signalé « ne pas renvoyer », retard de plus de 6 h annulé et signalé.
 - **SMTP** : relais Google Workspace (`smtp-relay.gmail.com:587`, STARTTLS), autorisé par l'IP du serveur.
-  Vérification sans envoi : `docker compose run --rm tools npx tsx scripts/verifier-smtp.ts`
+  Vérification sans envoi : `docker compose exec envois node --import tsx scripts/verifier-smtp.ts`
 
 ## Structure
 

@@ -1,7 +1,49 @@
 name: opendata-communes
 
+# Chaque service ne reçoit que les variables dont il a besoin (plus d'env_file commun) :
+# le traitement des documents n'a ni le relais SMTP, ni les secrets de connexion, ni Internet ;
+# l'envoi des demandes n'a pas la clé des originaux.
+
+x-journaux: &journaux
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-durcissement: &durcissement
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 200
+  init: true
+
+x-identite: &identite
+  SITE_NAME: ${SITE_NAME}
+  SITE_URL: ${SITE_URL}
+  ASSO_NOM: ${ASSO_NOM}
+  ASSO_SIREN: ${ASSO_SIREN:-}
+  ASSO_RNA: ${ASSO_RNA:-}
+  ASSO_ADRESSE: ${ASSO_ADRESSE:-}
+  ASSO_EMAIL: ${ASSO_EMAIL:-}
+  ASSO_TELEPHONE: ${ASSO_TELEPHONE:-}
+  DIRECTEUR_PUBLICATION: ${DIRECTEUR_PUBLICATION:-}
+  HEBERGEUR: ${HEBERGEUR:-}
+  SOURCE_URL: ${SOURCE_URL:-}
+  DEPARTEMENTS_ACTIFS: ${DEPARTEMENTS_ACTIFS:-}
+  # Rôle limité aux données (lecture, écriture) : les migrations utilisent le propriétaire de la base.
+  DATABASE_URL: postgresql://lpgl_app:${POSTGRES_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+  STORAGE_DIR: /data/storage
+
+x-smtp: &smtp
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM}
+  SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+  SMTP_EHLO: ${SMTP_EHLO:-}
+
 services:
   db:
+    <<: *journaux
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -18,57 +60,116 @@ services:
     networks: [backend]
     mem_limit: 384m
 
+  # Site public et administration
   app:
+    <<: [*journaux, *durcissement]
     build:
       context: .
       target: runner
+    image: opendata-communes-app
     restart: unless-stopped
-    env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      STORAGE_DIR: /data/storage
+      <<: [*identite, *smtp]
+      # Clé des originaux : dépôt (chiffrement) et aperçus de l'éditeur (déchiffrement)
+      ORIGINALS_KEY: ${ORIGINALS_KEY}
+      AUTH_URL: ${AUTH_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_AUTHENTIK_ID: ${AUTH_AUTHENTIK_ID}
+      AUTH_AUTHENTIK_SECRET: ${AUTH_AUTHENTIK_SECRET}
+      AUTH_AUTHENTIK_ISSUER: ${AUTH_AUTHENTIK_ISSUER}
+      AUTH_ADMIN_GROUP: ${AUTH_ADMIN_GROUP}
     volumes:
       - storage:/data/storage
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /app/.next/cache:size=64m,uid=1000,gid=1000
     ports:
       - "10.1.0.2:8087:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/robots.txt').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
     networks: [backend, frontend]
     mem_limit: 768m
 
-  # Worker : analyse (rendu + OCR + détection) et génération des PDF occultés
+  # Traitement des documents (rendu, OCR, détection, versions occultées) : fichiers reçus de
+  # tiers, donc aucun accès à Internet, ni relais SMTP, ni secrets de connexion.
   worker:
+    <<: [*journaux, *durcissement]
     build:
       context: .
       target: tools
+    image: opendata-communes-worker
     restart: unless-stopped
-    command: ["npx", "tsx", "scripts/worker.ts"]
+    command: ["node", "--import", "tsx", "scripts/worker.ts"]
     user: node
-    env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      STORAGE_DIR: /data/storage
+      <<: *identite
+      WORKER_ROLE: documents
+      ORIGINALS_KEY: ${ORIGINALS_KEY}
       OMP_THREAD_LIMIT: "1"
     volumes:
       - storage:/data/storage
+    read_only: true
     tmpfs:
       - /tmp:size=512m,mode=1777
+    healthcheck:
+      # Un document très long peut occuper la boucle : seuil large.
+      test: ["CMD", "node", "-e", "process.exit(Date.now()-require('fs').statSync('/tmp/battement-documents').mtimeMs<3600e3?0:1)"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
     depends_on:
       db:
         condition: service_healthy
-    # frontend : accès Internet pour les imports open data lancés depuis l'admin
+    networks: [backend]
+    mem_limit: 768m
+    cpus: 1.0
+
+  # Envois programmés des demandes CRPA et imports open data lancés depuis l'admin
+  envois:
+    <<: [*journaux, *durcissement]
+    image: opendata-communes-worker
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "scripts/worker.ts"]
+    user: node
+    environment:
+      <<: [*identite, *smtp]
+      WORKER_ROLE: envois
+      # Supervision facultative : moniteur « push » Uptime Kuma appelé chaque minute
+      KUMA_PUSH_URL: ${KUMA_PUSH_URL:-}
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(Date.now()-require('fs').statSync('/tmp/battement-envois').mtimeMs<180e3?0:1)"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    depends_on:
+      db:
+        condition: service_healthy
     networks: [backend, frontend]
     mem_limit: 768m
     cpus: 1.0
 
-  # Conteneur outil : migrations et imports open data
-  #   docker compose run --rm tools npm run db:deploy
+  # Conteneur outil : migrations et imports open data (propriétaire de la base)
+  #   docker compose run --rm tools npx prisma migrate deploy
   #   docker compose run --rm tools npm run import:all
   tools:
+    <<: *journaux
     build:
       context: .
       target: tools
+    image: opendata-communes-tools
     profiles: [tools]
     env_file: .env
     environment:
