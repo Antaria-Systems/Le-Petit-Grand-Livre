@@ -9,6 +9,8 @@ export const site = {
     adresse: process.env.ASSO_ADRESSE ?? "",
     email: process.env.ASSO_EMAIL ?? "",
     telephone: process.env.ASSO_TELEPHONE ?? "",
+    /** Site de l'association (lien en pied de page, données structurées). */
+    site: process.env.ASSO_SITE ?? "",
   },
   /** Dépôt public du code source (licence AGPL) : lien affiché en pied de page s'il est renseigné. */
   codeSource: process.env.SOURCE_URL ?? "",

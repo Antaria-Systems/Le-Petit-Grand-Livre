@@ -6,6 +6,7 @@ import { EnTetePage } from "@/components/EnTetePage";
 import { IconeFleche } from "@/components/Icones";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
+import { metadonnees } from "@/lib/seo";
 
 type Props = { params: Promise<{ code: string }> };
 
@@ -20,14 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const r = await charger((await params).code);
   if (!r) return { title: "Région introuvable", robots: { index: false } };
   const couverts = r.departements.filter((d) => d.actif);
-  return {
-    title: `Région ${r.nom} : finances des communes`,
+  return metadonnees({
+    titre: `Région ${r.nom} : finances des communes`,
     description: couverts.length
       ? `Départements de la région ${r.nom} couverts par la plateforme : budget, dette, travaux et documents des communes.`
       : `Les départements de la région ${r.nom} ne sont pas encore couverts par la plateforme.`,
-    alternates: { canonical: `/regions/${r.code}` },
-    ...(couverts.length ? {} : { robots: { index: false, follow: true } }),
-  };
+    chemin: `/regions/${r.code}`,
+    indexer: couverts.length > 0,
+  });
 }
 
 export default async function PageRegion({ params }: Props) {

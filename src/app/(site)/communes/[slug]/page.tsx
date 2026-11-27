@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
+import { DonneesStructurees } from "@/components/DonneesStructurees";
 import { BibliothequeDocuments } from "@/components/fiche/BibliothequeDocuments";
 import { EnteteCommune } from "@/components/fiche/EnteteCommune";
 import { EnTeteSection } from "@/components/fiche/EnTeteSection";
@@ -12,9 +13,10 @@ import { SectionEssentiel } from "@/components/fiche/SectionEssentiel";
 import { SectionTravaux } from "@/components/fiche/SectionTravaux";
 import { site } from "@/lib/config";
 import { db } from "@/lib/db";
-import { financesCommune, referencesStrate } from "@/lib/finances";
-import { formatDate, formatDateCourte } from "@/lib/format";
+import { A, financesCommune, referencesStrate } from "@/lib/finances";
+import { formatDate, formatDateCourte, formatEntier } from "@/lib/format";
 import { deCommune } from "@/lib/lieux";
+import { descriptionCommune, metadonnees, urlAbsolue } from "@/lib/seo";
 import { STATUT_DEMANDE } from "@/lib/statuts";
 import { travauxCommune } from "@/lib/travaux";
 
@@ -26,18 +28,47 @@ type Props = {
 const chargerCommune = cache((slug: string) =>
   db.commune.findUnique({ where: { slug }, include: { departement: { include: { region: true } } } }),
 );
+// Partagés entre les métadonnées et la page (une seule requête de chaque par affichage).
+const chargerFinances = cache((code: string) => financesCommune(code));
+const compterDocuments = cache((code: string) => db.document.count({ where: { communeCode: code, statut: "PUBLIE" } }));
+
+/**
+ * Adresse approchante (« /communes/lavalette », « /communes/11199 ») : redirection vers la fiche si
+ * elle désigne une seule commune ; sinon, page introuvable.
+ */
+async function redirigerSiPossible(slug: string): Promise<void> {
+  const candidates = /^\d[\dab]\d{3}$/.test(slug)
+    ? await db.commune.findMany({ where: { code: slug.toUpperCase() }, select: { slug: true }, take: 1 })
+    : (await db.commune.findMany({ where: { slug: { startsWith: `${slug}-` } }, select: { slug: true }, take: 5 })).filter((c) =>
+        /^\d[\dAB]\d{3}$/.test(c.slug.slice(slug.length + 1)),
+      );
+  if (candidates.length === 1) permanentRedirect(`/communes/${candidates[0].slug}`);
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = await chargerCommune((await params).slug);
-  if (!c) return { title: "Commune introuvable" };
-  const description = `Budget, dette, travaux et documents de la commune ${deCommune(c.nom)} (${c.departement.nom}) : comptes publics et pièces obtenues auprès de la mairie, rendus lisibles.`;
-  return {
-    title: `${c.nom} (${c.departementCode}) : budget, travaux, documents`,
-    description,
-    alternates: { canonical: `/communes/${c.slug}` },
-    openGraph: { title: `${c.nom} · ${site.nom}`, description, type: "website", locale: "fr_FR", siteName: site.nom, url: `/communes/${c.slug}` },
-    twitter: { card: "summary_large_image" },
-  };
+  if (!c) return { title: "Commune introuvable", robots: { index: false } };
+  const [finances, nbDocuments] = await Promise.all([chargerFinances(c.code), compterDocuments(c.code)]);
+  const annee = finances.exercices[finances.exercices.length - 1];
+  const dernier = annee !== undefined ? finances.parExercice.get(annee) : undefined;
+  const codePostal = c.codesPostaux[0];
+  return metadonnees({
+    // « Lavalette (11290) » : le code postal est souvent tapé avec le nom, et départage les homonymes.
+    titre: `${c.nom} (${codePostal ?? c.departementCode}) : budget, dette et travaux`,
+    titrePartage: `${c.nom} (${c.departement.nom}) : budget, dette et travaux de la commune`,
+    description: descriptionCommune({
+      nom: c.nom,
+      departement: c.departement.nom,
+      codePostal,
+      population: c.population,
+      annee,
+      depenses: dernier?.get(A.depensesTotales)?.montant,
+      detteParHabitant: dernier?.get(A.encoursDette)?.parHabitant,
+      nbDocuments,
+    }),
+    chemin: `/communes/${c.slug}`,
+    imageDuDossier: true,
+  });
 }
 
 const SECTIONS = [
@@ -52,10 +83,13 @@ const SECTIONS = [
 export default async function PageCommune({ params, searchParams }: Props) {
   const { slug } = await params;
   const commune = await chargerCommune(slug);
-  if (!commune) notFound();
+  if (!commune) {
+    await redirigerSiPossible(slug);
+    notFound();
+  }
 
-  const [finances, refs, travaux, indemnites, frais, demandes, lots, importe] = await Promise.all([
-    financesCommune(commune.code),
+  const [finances, refs, travaux, indemnites, frais, demandes, lots, importe, voisines] = await Promise.all([
+    chargerFinances(commune.code),
     referencesStrate(commune.strate),
     travauxCommune(commune.code),
     db.indemniteFonction.findMany({ where: { communeCode: commune.code }, orderBy: [{ annee: "desc" }, { ordre: "asc" }] }),
@@ -73,6 +107,13 @@ export default async function PageCommune({ params, searchParams }: Props) {
       _max: { publieLe: true },
     }),
     db.etat.findUnique({ where: { cle: `import:finances:${commune.departementCode}` } }),
+    commune.epciNom
+      ? db.commune.findMany({
+          where: { epciNom: commune.epciNom, code: { not: commune.code }, departement: { actif: true } },
+          orderBy: { nomRecherche: "asc" },
+          select: { nom: true, slug: true, population: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const anneeDemandee = Number((await searchParams).annee);
@@ -80,8 +121,67 @@ export default async function PageCommune({ params, searchParams }: Props) {
   const carte = commune.departement.carteViewBox && commune.cheminCarte ? { viewBox: commune.departement.carteViewBox, chemin: commune.cheminCarte } : null;
   const dernierePublication = lots.map((l) => l._max.publieLe).filter((d): d is Date => d !== null).sort((a, b) => b.getTime() - a.getTime())[0];
 
+  // Pour les moteurs : la page, la commune qu'elle décrit et le jeu de données téléchargeable
+  // (repris par Google Dataset Search).
+  const url = urlAbsolue(`/communes/${commune.slug}`);
+  const importeLe = importe ? new Date(importe.valeur) : undefined;
+  const modifieLe = [commune.majLe, dernierePublication, importeLe].filter((d): d is Date => d instanceof Date && !isNaN(d.getTime())).sort((a, b) => b.getTime() - a.getTime())[0];
+  const [premier, dernier] = [finances.exercices[0], finances.exercices[finances.exercices.length - 1]];
+  const pourMoteurs = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": url,
+        url,
+        name: `${commune.nom} : budget, dette et travaux de la commune`,
+        inLanguage: "fr-FR",
+        isPartOf: { "@type": "WebSite", "@id": `${urlAbsolue("/")}#site`, name: site.nom, url: urlAbsolue("/") },
+        about: { "@id": `${url}#commune` },
+        ...(modifieLe ? { dateModified: modifieLe.toISOString() } : {}),
+      },
+      {
+        "@type": "City",
+        "@id": `${url}#commune`,
+        name: commune.nom,
+        identifier: { "@type": "PropertyValue", propertyID: "Code officiel géographique (Insee)", value: commune.code },
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: commune.nom,
+          ...(commune.codesPostaux[0] ? { postalCode: commune.codesPostaux[0] } : {}),
+          addressRegion: commune.departement.nom,
+          addressCountry: "FR",
+        },
+        containedInPlace: { "@type": "AdministrativeArea", name: commune.departement.nom, url: urlAbsolue(`/departements/${commune.departementCode}`) },
+      },
+      ...(premier !== undefined
+        ? [
+            {
+              "@type": "Dataset",
+              "@id": `${url}#comptes`,
+              name: `Comptes de la commune ${deCommune(commune.nom)} (${commune.departement.nom}), ${premier}-${dernier}`,
+              description: `Agrégats financiers de la commune ${deCommune(commune.nom)} (code Insee ${commune.code}, ${commune.departement.nom}), exercices ${premier} à ${dernier} : recettes et dépenses de fonctionnement et d'investissement, épargne brute et nette, encours et annuité de la dette, impôts locaux, dotations et subventions, en euros et en euros par habitant, pour le budget principal et les budgets annexes. Source : Observatoire des finances et de la gestion publique locales (OFGL), d'après les comptes de la DGFiP.`,
+              url,
+              keywords: [commune.nom, commune.departement.nom, "finances locales", "budget communal", "dette", "impôts locaux", "comptes des communes"],
+              license: "https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+              isAccessibleForFree: true,
+              inLanguage: "fr",
+              creator: { "@type": "Organization", name: "Observatoire des finances et de la gestion publique locales (OFGL)", url: "https://data.ofgl.fr/" },
+              publisher: { "@type": "NGO", name: site.asso.nom || site.nom, ...(site.asso.site ? { url: site.asso.site } : {}) },
+              isBasedOn: "https://data.ofgl.fr/explore/dataset/ofgl-base-communes/",
+              spatialCoverage: { "@type": "Place", name: `${commune.nom}, ${commune.departement.nom}, France` },
+              temporalCoverage: `${premier}/${dernier}`,
+              distribution: [{ "@type": "DataDownload", encodingFormat: "text/csv", contentUrl: urlAbsolue(`/communes/${commune.slug}/donnees.csv`) }],
+              ...(importeLe && !isNaN(importeLe.getTime()) ? { dateModified: importeLe.toISOString() } : {}),
+            },
+          ]
+        : []),
+    ],
+  };
+
   return (
     <>
+      <DonneesStructurees donnees={pourMoteurs} />
       <EnteteCommune
         commune={commune}
         departement={commune.departement}
@@ -216,7 +316,41 @@ export default async function PageCommune({ params, searchParams }: Props) {
             </div>
           </div>
         </section>
+
+        {voisines.length > 0 && (
+          <section id="alentours" className="bloc" aria-labelledby="titre-alentours">
+            <EnTeteSection
+              id="titre-alentours"
+              surtitre="Alentours"
+              titre="Dans la même intercommunalité"
+              description={`${commune.epciNom} : ${formatEntier(voisines.length)} autre${voisines.length > 1 ? "s" : ""} commune${voisines.length > 1 ? "s" : ""}, avec leur budget, leur dette et leurs documents.`}
+            />
+            {voisines.length > 24 ? (
+              <details className="donnees">
+                <summary>Voir les {formatEntier(voisines.length)} communes</summary>
+                <ListeVoisines communes={voisines} />
+              </details>
+            ) : (
+              <ListeVoisines communes={voisines} />
+            )}
+          </section>
+        )}
       </div>
     </>
+  );
+}
+
+function ListeVoisines({ communes }: { communes: { nom: string; slug: string; population: number | null }[] }) {
+  return (
+    <ul className="liste-communes">
+      {communes.map((c) => (
+        <li key={c.slug}>
+          <Link prefetch={false} href={`/communes/${c.slug}`}>
+            <span>{c.nom}</span>
+            {c.population !== null && <span className="discret chiffres">{formatEntier(c.population)} hab.</span>}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

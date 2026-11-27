@@ -3,12 +3,13 @@ import Link from "next/link";
 import { EnTetePage } from "@/components/EnTetePage";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
+import { metadonnees } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Tous les territoires",
-  description: "Régions et départements couverts par la plateforme, et ceux qui le seront prochainement.",
-  alternates: { canonical: "/regions" },
-};
+export const metadata: Metadata = metadonnees({
+  titre: "Régions et départements : les finances des communes",
+  description: "Régions et départements couverts par la plateforme, et ceux qui le seront prochainement : budget, dette et documents des communes.",
+  chemin: "/regions",
+});
 
 export default async function Territoires() {
   const regions = await db.region.findMany({

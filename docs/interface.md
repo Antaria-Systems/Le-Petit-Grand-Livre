@@ -161,16 +161,33 @@ Une fiche imprimée garde l'identité, les chiffres clés, les graphiques et les
 
 ## 10. Référencement et partage
 
-- **Titres et descriptions** propres à chaque page (« Lavalette (11) : budget, travaux, documents », « Communes de l'Aude (11) : finances et documents »).
-- **Adresses canoniques** sur toutes les pages ; `?annee=` neutralisé sur les fiches.
-- **`/sitemap.xml`** : pages fixes, territoires couverts, toutes les fiches des départements couverts (date de dernière publication).
-- **`/robots.txt`** : administration, API, connexion et recherche exclues.
+### Moteurs de recherche
+
+- **Titres** pensés pour les recherches courantes : « Lavalette (11290) : budget, dette et travaux », « Communes de l'Aude (11) : budget, dette et documents ». Le code postal départage les homonymes.
+- **Descriptions chiffrées** propres à chaque fiche : population, dépenses et dette par habitant du dernier exercice, nombre de documents publiés.
+- **Adresses canoniques** sur toutes les pages ; `?annee=` neutralisé sur les fiches. Les adresses approchantes (`/communes/lavalette`, `/communes/11199`) redirigent (308) vers la fiche quand elles désignent une seule commune.
+- **Données structurées** (schema.org, JSON-LD) :
+  - accueil : `WebSite` (nom affiché dans les résultats, sigle LPGL, recherche de communes) et `NGO` (l'association éditrice) ;
+  - toutes les pages à fil d'Ariane : `BreadcrumbList`, que les moteurs affichent à la place de l'adresse ;
+  - fiches : `WebPage`, `City` (code Insee, code postal, département) et `Dataset` (comptes OFGL, licence, export CSV), repris par Google Dataset Search.
+- **Maillage** : chaque fiche liste les autres communes de son intercommunalité (repliée au-delà de 24).
+- **`/sitemap.xml`** : pages fixes, territoires couverts, toutes les fiches des départements couverts (date de dernière modification ou publication). Annoncé dans **`/robots.txt`** (administration, API, connexion et recherche exclues).
+- **IndexNow** : le worker `envois` signale toutes les 10 minutes les fiches modifiées (import des comptes, présentation) ou ayant reçu un document publié, avec leur département et l'accueil ; la première fois, tout le plan du site. Bing, Yandex, Seznam, Naver et Yep le reçoivent ; DuckDuckGo, Qwant, Ecosia et Yahoo s'appuient sur l'index de Bing. Clé : `INDEXNOW_KEY`, publiée en `/<clé>.txt`. Google n'y participe pas : il lit le plan du site.
+- **Outils pour webmestres** : codes `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`, `YANDEX_VERIFICATION` (balises meta), si le domaine n'est pas validé par DNS.
 - **Pages non couvertes** (département ou région sans couverture) en `noindex`.
-- **Images de partage** : une image par défaut et une par fiche (nom, département, population, dette par habitant, documents publiés).
+- **OpenSearch** (`/opensearch.xml`) : la recherche de communes s'ajoute aux moteurs du navigateur.
+
+### Aperçus de partage
+
+Discord, Facebook, LinkedIn, WhatsApp, Telegram, Slack, X, iMessage : titre, description, adresse et grande image (Open Graph, carte `summary_large_image`) sur toutes les pages ; liseré bleu sur Discord (`theme-color`).
+
+- **Images** : une par défaut, une par département (communes, habitants, documents publiés), une par fiche (nom, département, population, dette par habitant, documents publiés).
 
   <img src="images/partage-fiche.png" alt="Image de partage d'une fiche" width="480">
 
 - **Icônes** : `icon.svg`, icône Apple 180 px, manifeste web.
+
+> `robots.txt`, le manifeste et l'image par défaut sont rendus à la requête (`dynamic = "force-dynamic"`) : à la construction de l'image Docker, `SITE_URL` et `SITE_NAME` ne sont pas connues.
 
 ---
 
@@ -186,4 +203,6 @@ Une fiche imprimée garde l'identité, les chiffres clés, les graphiques et les
 | Un graphique | `src/components/graphiques/` |
 | Une animation, les blocs qui apparaissent au défilement | `src/app/globals.css` (« Apparition au défilement », « Animations »), `src/components/Apparition.tsx` |
 | Le barème des indemnités | `src/components/fiche/SectionElus.tsx` |
-| Les images de partage | `src/app/opengraph-image.tsx`, `src/app/(site)/communes/[slug]/opengraph-image.tsx` |
+| Les images de partage | `src/app/opengraph-image.tsx`, `src/app/(site)/communes/[slug]/opengraph-image.tsx`, `src/app/(site)/departements/[code]/opengraph-image.tsx` |
+| Titres, descriptions, données structurées | `src/lib/seo.ts`, `generateMetadata` de chaque page |
+| Le signalement aux moteurs (IndexNow) | `src/lib/indexnow.ts`, `scripts/worker.ts` |

@@ -48,6 +48,7 @@ Toutes dans `.env` (jamais commité), modèle dans `.env.example`. Docker Compos
 | `ASSO_TELEPHONE` | `04 00 00 00 00` | **Obligatoire** pour une personne morale (LCEN). |
 | `DIRECTEUR_PUBLICATION` | `Prénom Nom, président` | Mentions légales, signature des courriers. |
 | `HEBERGEUR` | `Hetzner Online GmbH, adresse, téléphone` | Mentions légales. |
+| `ASSO_SITE` | `https://exemple.fr` | Facultatif : site de l'association (lien en pied de page, données structurées). |
 | `SOURCE_URL` | `https://github.com/…` | Lien « Code source » (AGPL). |
 | `DEPARTEMENTS_ACTIFS` | `11` | Départements couverts au démarrage (les autres s'activent depuis l'administration). |
 | `APP_ECOUTE` | `127.0.0.1:8087` | Adresse et port d'écoute du site, vus par le reverse proxy. |
@@ -82,6 +83,13 @@ Toutes dans `.env` (jamais commité), modèle dans `.env.example`. Docker Compos
 | `SMTP_FROM`, `SMTP_FROM_NAME` | Expéditeur des demandes. |
 | `SMTP_EHLO` | Nom annoncé au relais (le domaine). |
 | `KUMA_PUSH_URL` | Facultatif : moniteur « push » Uptime Kuma appelé chaque minute par le worker `envois`. |
+
+### Référencement (facultatif)
+
+| Variable | Usage |
+|---|---|
+| `INDEXNOW_KEY` | Clé IndexNow, 32 caractères hexadécimaux : `openssl rand -hex 16`. Publiée en `/<clé>.txt` ; le worker `envois` signale alors les pages modifiées aux moteurs (voir [interface.md](interface.md#10-référencement-et-partage)). |
+| `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`, `YANDEX_VERIFICATION` | Codes de validation « balise meta » de Google Search Console, Bing Webmaster Tools et Yandex Webmaster, si le domaine n'est pas validé par DNS. |
 
 ---
 

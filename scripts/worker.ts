@@ -2,7 +2,8 @@
  * Worker : envois programmés, tâches d'import, traitement des documents.
  *
  * Rôle (variable WORKER_ROLE) :
- *  - « envois »    : envois programmés des demandes + tâches d'import (a besoin d'Internet et du relais SMTP) ;
+ *  - « envois »    : envois programmés des demandes + tâches d'import + signalement des pages modifiées
+ *                    aux moteurs de recherche (a besoin d'Internet et du relais SMTP) ;
  *  - « documents » : analyse et génération des versions occultées (aucun besoin d'Internet ni du SMTP) ;
  *  - « tout »      : les deux (par défaut).
  *
@@ -16,6 +17,7 @@ import { purgerOriginaux } from "../src/lib/conservation";
 import { db } from "../src/lib/db";
 import { traiterEnvoisProgrammes } from "../src/lib/envoi-demande";
 import { importerDepartement } from "../src/lib/imports";
+import { signalerPagesModifiees } from "../src/lib/indexnow";
 import { analyser, generer } from "../src/lib/traitement/pipeline";
 
 const ROLE = (process.env.WORKER_ROLE ?? "tout") as "tout" | "envois" | "documents";
@@ -49,6 +51,25 @@ async function pushSupervision() {
   await fetch(url, { signal: AbortSignal.timeout(10_000) }).catch(() => {});
 }
 
+/* ───────────── Moteurs de recherche (IndexNow) ───────────── */
+
+// Toutes les 10 minutes au plus : fiches modifiées ou documents publiés depuis le dernier signalement.
+let dernierSignalement = 0;
+let signalementEnCours = false;
+async function signalerAuxMoteurs() {
+  if (signalementEnCours || Date.now() - dernierSignalement < 10 * 60_000) return;
+  dernierSignalement = Date.now();
+  signalementEnCours = true;
+  try {
+    const n = await signalerPagesModifiees();
+    if (n) console.log(`[indexnow] ${n} adresse${n > 1 ? "s" : ""} signalée${n > 1 ? "s" : ""} aux moteurs de recherche`);
+  } catch (e) {
+    console.error("[indexnow]", e instanceof Error ? e.message : e);
+  } finally {
+    signalementEnCours = false;
+  }
+}
+
 /* ───────────── Envois programmés (boucle indépendante) ───────────── */
 
 let envoisEnCours = false;
@@ -59,6 +80,8 @@ async function boucleEnvois() {
     await traiterEnvoisProgrammes();
     await battement("envois");
     await pushSupervision();
+    // Sans attendre : une réponse lente des moteurs ne retarde pas les envois.
+    void signalerAuxMoteurs();
   } catch (e) {
     console.error("[envoi programmé]", e);
   } finally {

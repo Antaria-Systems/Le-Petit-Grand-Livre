@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 import { site } from "@/lib/config";
 
+// Rendu à la requête : à la construction de l'image, SITE_NAME n'est pas encore connu.
+export const dynamic = "force-dynamic";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: site.nom,

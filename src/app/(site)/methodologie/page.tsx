@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { EnTetePage } from "@/components/EnTetePage";
+import { metadonnees } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Méthodologie et sources",
+export const metadata: Metadata = metadonnees({
+  titre: "Méthodologie et sources",
   description:
     "D'où viennent les chiffres (OFGL, DGFiP), comment les documents sont demandés aux mairies (CRPA), occultés et vérifiés avant publication.",
-  alternates: { canonical: "/methodologie" },
-};
+  chemin: "/methodologie",
+});
 
 export default function Methodologie() {
   return (

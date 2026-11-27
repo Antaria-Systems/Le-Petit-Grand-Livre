@@ -85,7 +85,15 @@ export function Pied() {
           <div className="pied-texte">
             <p>
               {site.nom} rassemble les comptes publics des communes et les documents obtenus auprès des mairies au titre du droit
-              d&apos;accès aux documents administratifs. Plateforme indépendante éditée par {site.asso.nom ? `l'association ${site.asso.nom}` : "une association"} :
+              d&apos;accès aux documents administratifs. Plateforme indépendante éditée par{" "}
+              {site.asso.nom ? (
+                <>
+                  l&apos;association {site.asso.site ? <a href={site.asso.site}>{site.asso.nom}</a> : site.asso.nom}
+                </>
+              ) : (
+                "une association"
+              )}
+              &nbsp;:
               ce n&apos;est pas un site de l&apos;État ni d&apos;une collectivité.
             </p>
             <ul className="pied-sources" aria-label="Sources et références">

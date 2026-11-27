@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { EnTetePage } from "@/components/EnTetePage";
 import { ACompleter } from "@/components/ACompleter";
 import { site } from "@/lib/config";
+import { metadonnees } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "À propos",
-  description: "Le Petit Grand Livre : une plateforme associative et indépendante pour rendre lisibles les finances des communes.",
-  alternates: { canonical: "/a-propos" },
-};
+export const metadata: Metadata = metadonnees({
+  titre: "À propos",
+  description: `${site.nom} : une plateforme associative et indépendante pour rendre lisibles les finances des communes.`,
+  chemin: "/a-propos",
+});
 
 export default function APropos() {
   return (

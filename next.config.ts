@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Fichier de clé IndexNow à la racine du site (voir src/lib/indexnow.ts).
+  async rewrites() {
+    return [{ source: "/:cle([0-9a-f]{32}).txt", destination: "/indexnow/:cle" }];
+  },
   async headers() {
     const securite = [
       { key: "X-Content-Type-Options", value: "nosniff" },

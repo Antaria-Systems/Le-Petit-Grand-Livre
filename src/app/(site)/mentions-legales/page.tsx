@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { ACompleter } from "@/components/ACompleter";
 import { EnTetePage } from "@/components/EnTetePage";
 import { site } from "@/lib/config";
+import { metadonnees } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Mentions légales et données personnelles",
+export const metadata: Metadata = metadonnees({
+  titre: "Mentions légales et données personnelles",
   description: `Éditeur, hébergement, licences et protection des données personnelles sur ${site.nom}.`,
-  alternates: { canonical: "/mentions-legales" },
-};
+  chemin: "/mentions-legales",
+});
 
 const SECTIONS = [
   ["editeur", "Éditeur"],

@@ -1,13 +1,45 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DonneesStructurees } from "@/components/DonneesStructurees";
 import { IconeFleche, PictoCourrier, PictoDonnees, PictoOccultation } from "@/components/Icones";
 import { RechercheCommune } from "@/components/RechercheCommune";
 import { site } from "@/lib/config";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
 import { centreChemin } from "@/lib/geometrie";
+import { metadonnees, organisation, urlAbsolue } from "@/lib/seo";
 
-export const metadata: Metadata = { alternates: { canonical: "/" } };
+const TITRE = `${site.nom} · les finances de votre commune, en clair`;
+const DESCRIPTION =
+  "Budget, dette, impôts locaux, travaux et indemnités des élus de votre commune : les comptes publics et les documents obtenus auprès des mairies, rendus lisibles. Gratuit et indépendant.";
+
+export const metadata: Metadata = { ...metadonnees({ titre: TITRE, description: DESCRIPTION, chemin: "/" }), title: { absolute: TITRE } };
+
+/**
+ * Le site et son éditeur, pour les moteurs : nom affiché dans les résultats (« Le Petit Grand Livre »
+ * plutôt que l'adresse), sigle, recherche de communes, association éditrice.
+ */
+const pourMoteurs = () => ({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${urlAbsolue("/")}#site`,
+      url: urlAbsolue("/"),
+      name: site.nom,
+      alternateName: "LPGL",
+      description: DESCRIPTION,
+      inLanguage: "fr-FR",
+      publisher: { "@id": `${urlAbsolue("/")}#organisation` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: { "@type": "EntryPoint", urlTemplate: `${urlAbsolue("/recherche")}?q={search_term_string}` },
+        "query-input": "required name=search_term_string",
+      },
+    },
+    organisation(),
+  ],
+});
 
 export default async function Accueil() {
   const [regions, nbCommunes, nbDocuments, nbDemandes, nbChantiers, aLaUne, nbAvecDocuments] = await Promise.all([
@@ -40,6 +72,7 @@ export default async function Accueil() {
 
   return (
     <>
+      <DonneesStructurees donnees={pourMoteurs()} />
       <section className="hero" aria-labelledby="titre-accueil">
         <div className="conteneur hero-grille">
           <div>

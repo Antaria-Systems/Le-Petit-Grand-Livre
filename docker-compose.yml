@@ -24,6 +24,7 @@ x-identite: &identite
   ASSO_ADRESSE: ${ASSO_ADRESSE:-}
   ASSO_EMAIL: ${ASSO_EMAIL:-}
   ASSO_TELEPHONE: ${ASSO_TELEPHONE:-}
+  ASSO_SITE: ${ASSO_SITE:-}
   DIRECTEUR_PUBLICATION: ${DIRECTEUR_PUBLICATION:-}
   HEBERGEUR: ${HEBERGEUR:-}
   SOURCE_URL: ${SOURCE_URL:-}
@@ -78,6 +79,11 @@ services:
       AUTH_AUTHENTIK_SECRET: ${AUTH_AUTHENTIK_SECRET}
       AUTH_AUTHENTIK_ISSUER: ${AUTH_AUTHENTIK_ISSUER}
       AUTH_ADMIN_GROUP: ${AUTH_ADMIN_GROUP}
+      # Référencement : clé IndexNow (publiée en /<clé>.txt) et codes des outils pour webmestres, facultatifs
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      BING_SITE_VERIFICATION: ${BING_SITE_VERIFICATION:-}
+      YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
     volumes:
       - storage:/data/storage
     read_only: true
@@ -144,6 +150,8 @@ services:
     environment:
       <<: [*identite, *smtp]
       WORKER_ROLE: envois
+      # Signalement des pages modifiées aux moteurs de recherche (IndexNow), facultatif
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       # Supervision facultative : moniteur « push » Uptime Kuma appelé chaque minute
       KUMA_PUSH_URL: ${KUMA_PUSH_URL:-}
     read_only: true

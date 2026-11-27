@@ -7,6 +7,7 @@ import { FiltreCommunes } from "@/components/FiltreCommunes";
 import { db } from "@/lib/db";
 import { formatEntier } from "@/lib/format";
 import { deDepartement } from "@/lib/lieux";
+import { metadonnees } from "@/lib/seo";
 
 type Props = { params: Promise<{ code: string }> };
 
@@ -24,15 +25,16 @@ const charger = cache(async (code: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const d = await charger((await params).code);
   if (!d) return { title: "Département introuvable", robots: { index: false } };
-  return {
-    title: `Communes ${deDepartement(d.nom)} (${d.code}) : finances et documents`,
+  return metadonnees({
+    titre: `Communes ${deDepartement(d.nom)} (${d.code}) : budget, dette et documents`,
     description: d.actif
-      ? `Budget, dette, travaux et documents des ${formatEntier(d.communes.length)} communes ${deDepartement(d.nom)} : comptes publics et pièces obtenues auprès des mairies.`
+      ? `Budget, dette, impôts locaux, travaux et documents des ${formatEntier(d.communes.length)} communes ${deDepartement(d.nom)} (${d.code}) : comptes publics et pièces obtenues auprès des mairies, commune par commune.`
       : `Les communes ${deDepartement(d.nom)} ne sont pas encore couvertes par la plateforme.`,
-    alternates: { canonical: `/departements/${d.code}` },
+    chemin: `/departements/${d.code}`,
     // Département pas encore couvert : page presque vide, non indexée.
-    ...(d.actif ? {} : { robots: { index: false, follow: true } }),
-  };
+    indexer: d.actif,
+    imageDuDossier: true,
+  });
 }
 
 export default async function PageDepartement({ params }: Props) {
